@@ -39,8 +39,16 @@
       </v-toolbar>
     </v-card>
 
+    <!-- Affichage du chargement -->
+    <v-row v-if="loading">
+      <v-col cols="12" class="text-center">
+        <v-progress-circular indeterminate color="primary"></v-progress-circular>
+        <div class="mt-2">Chargement des tournois...</div>
+      </v-col>
+    </v-row>
+
     <!-- Liste des tournois -->
-    <v-row>
+    <v-row v-else>
       <v-col 
         v-for="tournament in filteredTournaments"
         :key="tournament.id"
@@ -130,7 +138,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTournamentStore } from '@/stores/tournament'
 import { useAuthStore } from '@/stores/auth'
@@ -147,6 +155,7 @@ const showDeleteConfirm = ref(false)
 const editingTournament = ref(null)
 const tournamentToDelete = ref(null)
 const saving = ref(false)
+const loading = ref(false)
 
 const filters = ref({
   type: null,
@@ -176,8 +185,16 @@ const tournamentStatuses = [
 
 // Computed
 const filteredTournaments = computed(() => {
-  return tournamentStore.getFilteredTournaments()
+  // S'assurer que getFilteredTournaments retourne toujours un tableau
+  const tournaments = tournamentStore.getFilteredTournaments
+  return Array.isArray(tournaments) ? tournaments : []
 })
+
+// Synchroniser les filtres du composant avec le store
+watch(filters, (newFilters) => {
+  tournamentStore.filters = newFilters
+  loadTournaments()
+}, { deep: true })
 
 // Méthodes
 const createTournament = () => {
@@ -203,6 +220,7 @@ const saveTournament = async (tournamentData) => {
     closeTournamentForm()
     await loadTournaments()
   } catch (error) {
+    console.error('Erreur lors de l\'enregistrement du tournoi:', error)
     showError('Erreur lors de l\'enregistrement du tournoi')
   } finally {
     saving.value = false
@@ -221,6 +239,7 @@ const deleteTournament = async () => {
     showDeleteConfirm.value = false
     await loadTournaments()
   } catch (error) {
+    console.error('Erreur lors de la suppression du tournoi:', error)
     showError('Erreur lors de la suppression du tournoi')
   }
 }
@@ -231,6 +250,7 @@ const registerToTournament = async (tournamentId) => {
     showSuccess('Inscription réussie')
     await loadTournaments()
   } catch (error) {
+    console.error('Erreur lors de l\'inscription:', error)
     showError('Erreur lors de l\'inscription')
   }
 }
@@ -241,6 +261,7 @@ const unregisterFromTournament = async (tournamentId) => {
     showSuccess('Désinscription réussie')
     await loadTournaments()
   } catch (error) {
+    console.error('Erreur lors de la désinscription:', error)
     showError('Erreur lors de la désinscription')
   }
 }
@@ -250,6 +271,7 @@ const startTournament = async (tournamentId) => {
     await tournamentStore.startTournament(tournamentId)
     router.push(`/tournaments/${tournamentId}`)
   } catch (error) {
+    console.error('Erreur lors du démarrage du tournoi:', error)
     showError('Erreur lors du démarrage du tournoi')
   }
 }
@@ -259,6 +281,7 @@ const pauseTournament = async (tournamentId) => {
     await tournamentStore.pauseTournament(tournamentId)
     await loadTournaments()
   } catch (error) {
+    console.error('Erreur lors de la mise en pause du tournoi:', error)
     showError('Erreur lors de la mise en pause du tournoi')
   }
 }
@@ -269,7 +292,15 @@ const closeTournamentForm = () => {
 }
 
 const loadTournaments = async () => {
-  await tournamentStore.fetchTournaments()
+  loading.value = true
+  try {
+    await tournamentStore.fetchTournaments()
+  } catch (error) {
+    console.error('Erreur lors du chargement des tournois:', error)
+    showError('Erreur lors du chargement des tournois')
+  } finally {
+    loading.value = false
+  }
 }
 
 // Notifications
