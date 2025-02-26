@@ -92,6 +92,7 @@
         </template>
   
         <!-- Menu des actions admin -->
+        <!-- Menu des actions admin -->
         <v-menu
           v-if="isAdmin"
           location="bottom end"
@@ -104,35 +105,46 @@
               <v-icon>mdi-dots-vertical</v-icon>
             </v-btn>
           </template>
-  
+
           <v-list>
             <template v-if="tournament.status === 'PLANNED'">
               <v-list-item
-                @click="$emit('start')"
-                prepend-icon="mdi-play"
-                title="Démarrer"
-              ></v-list-item>
-  
+                @click="$emit('start', tournament.id)"
+              >
+                <template v-slot:prepend>
+                  <v-icon>mdi-play</v-icon>
+                </template>
+                <v-list-item-title>Démarrer</v-list-item-title>
+              </v-list-item>
+
               <v-list-item
-                @click="$emit('edit')"
-                prepend-icon="mdi-pencil"
-                title="Modifier"
-              ></v-list-item>
-  
+                @click="$emit('edit', tournament)"
+              >
+                <template v-slot:prepend>
+                  <v-icon>mdi-pencil</v-icon>
+                </template>
+                <v-list-item-title>Modifier</v-list-item-title>
+              </v-list-item>
+
               <v-list-item
-                @click="$emit('delete')"
-                prepend-icon="mdi-delete"
-                title="Supprimer"
-                color="error"
-              ></v-list-item>
+                @click="$emit('delete', tournament)"
+              >
+                <template v-slot:prepend>
+                  <v-icon>mdi-delete</v-icon>
+                </template>
+                <v-list-item-title>Supprimer</v-list-item-title>
+              </v-list-item>
             </template>
-  
+
             <template v-if="tournament.status === 'IN_PROGRESS'">
               <v-list-item
-                @click="$emit('pause')"
-                :prepend-icon="tournament.paused ? 'mdi-play' : 'mdi-pause'"
-                :title="tournament.paused ? 'Reprendre' : 'Pause'"
-              ></v-list-item>
+                @click="$emit('pause', tournament.id)"
+              >
+                <template v-slot:prepend>
+                  <v-icon>{{ tournament.paused ? 'mdi-play' : 'mdi-pause' }}</v-icon>
+                </template>
+                <v-list-item-title>{{ tournament.paused ? 'Reprendre' : 'Pause' }}</v-list-item-title>
+              </v-list-item>
             </template>
           </v-list>
         </v-menu>
@@ -160,7 +172,9 @@
   
   // Computed
   const isAdmin = computed(() => {
-    return authStore.user?.id === props.tournament.admin_id
+    console.log("User ID:", authStore.user?.id);
+    console.log("Tournament admin ID:", props.tournament.admin_id);
+    return authStore.user?.id === props.tournament.admin_id;
   })
   
   const isRegistered = computed(() => {

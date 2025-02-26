@@ -67,50 +67,106 @@
         <!-- Prochain tournoi -->
         <v-row class="mt-4">
           <v-col cols="12">
-            <v-card v-if="nextTournament" class="mb-4">
+            <template v-if="nextTournament">
+              <v-card class="mb-4">
+                <v-card-title class="bg-primary text-white">
+                  Prochain tournoi
+                </v-card-title>
+                <v-card-text class="pa-4">
+                  <v-row align="center">
+                    <v-col cols="12" md="8">
+                      <h3 class="text-h6 mb-2">{{ nextTournament.name }}</h3>
+                      <div class="text-body-1">
+                        <v-icon start>mdi-calendar</v-icon>
+                        {{ formatDate(nextTournament.date) }}
+                      </div>
+                      <div class="text-body-1">
+                        <v-icon start>mdi-account-group</v-icon>
+                        {{ nextTournament.registered_players }} / {{ nextTournament.max_players }} joueurs
+                      </div>
+                      <div class="text-body-1">
+                        <v-icon start>mdi-poker-chip</v-icon>
+                        Buy-in: {{ nextTournament.buy_in }}€
+                      </div>
+                    </v-col>
+                    <v-col cols="12" md="4" class="text-center">
+                      <v-btn
+                        color="primary"
+                        :to="`/tournaments/${nextTournament.id}`"
+                        class="ma-2"
+                      >
+                        Voir les détails
+                      </v-btn>
+                      <v-btn
+                        v-if="!isRegistered(nextTournament.id)"
+                        color="success"
+                        @click="registerToTournament(nextTournament.id)"
+                        class="ma-2"
+                      >
+                        S'inscrire
+                      </v-btn>
+                      <v-btn
+                        v-else
+                        color="error"
+                        @click="unregisterFromTournament(nextTournament.id)"
+                        class="ma-2"
+                      >
+                        Se désinscrire
+                      </v-btn>
+                    </v-col>
+                  </v-row>
+                </v-card-text>
+              </v-card>
+            </template>
+            <v-card v-else class="mb-4">
               <v-card-title class="bg-primary text-white">
                 Prochain tournoi
+              </v-card-title>
+              <v-card-text class="pa-4 text-center">
+                <p class="text-h6 my-4">Aucun tournoi planifié pour le moment</p>
+                <v-btn
+                  color="primary"
+                  prepend-icon="mdi-plus"
+                  @click="createNewTournament"
+                >
+                  Créer un tournoi
+                </v-btn>
+              </v-card-text>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- Section pour le dernier tournoi terminé -->
+        <v-row class="mt-4" v-if="lastTournament">
+          <v-col cols="12">
+            <v-card class="mb-4">
+              <v-card-title class="bg-grey-lighten-2">
+                Dernier tournoi terminé
               </v-card-title>
               <v-card-text class="pa-4">
                 <v-row align="center">
                   <v-col cols="12" md="8">
-                    <h3 class="text-h6 mb-2">{{ nextTournament.name }}</h3>
+                    <h3 class="text-h6 mb-2">{{ lastTournament.name }}</h3>
                     <div class="text-body-1">
                       <v-icon start>mdi-calendar</v-icon>
-                      {{ formatDate(nextTournament.date) }}
+                      {{ formatDate(lastTournament.date) }}
                     </div>
                     <div class="text-body-1">
                       <v-icon start>mdi-account-group</v-icon>
-                      {{ nextTournament.registered_players }} / {{ nextTournament.max_players }} joueurs
+                      {{ (lastTournament.registered_players?.length || 0) }} joueurs
                     </div>
-                    <div class="text-body-1">
-                      <v-icon start>mdi-poker-chip</v-icon>
-                      Buy-in: {{ nextTournament.buy_in }}€
+                    <div v-if="lastTournament.winner" class="text-body-1">
+                      <v-icon start>mdi-trophy</v-icon>
+                      Gagnant: {{ lastTournament.winner.username }}
                     </div>
                   </v-col>
                   <v-col cols="12" md="4" class="text-center">
                     <v-btn
                       color="primary"
-                      :to="`/tournaments/${nextTournament.id}`"
+                      :to="`/tournaments/${lastTournament.id}`"
                       class="ma-2"
                     >
-                      Voir les détails
-                    </v-btn>
-                    <v-btn
-                      v-if="!isRegistered(nextTournament.id)"
-                      color="success"
-                      @click="registerToTournament(nextTournament.id)"
-                      class="ma-2"
-                    >
-                      S'inscrire
-                    </v-btn>
-                    <v-btn
-                      v-else
-                      color="error"
-                      @click="unregisterFromTournament(nextTournament.id)"
-                      class="ma-2"
-                    >
-                      Se désinscrire
+                      Voir les résultats
                     </v-btn>
                   </v-col>
                 </v-row>
@@ -240,6 +296,16 @@
   const clayTokenHolder = ref(null)
   const topBountyHunter = ref(null)
   const bountyHunters = ref([])
+
+  const lastTournament = computed(() => tournamentStore.lastCompletedTournament)
+
+
+  // FIXME : tmp Ajoutez après les computed properties existantes
+  watch(() => tournamentStore.tournaments, (newTournaments) => {
+    console.log("Tournois chargés:", newTournaments);
+    console.log("Prochain tournoi:", nextTournament.value);
+    console.log("Dernier tournoi:", lastTournament.value);
+  }, { immediate: true });
   
   // Fonctions utilitaires
   const formatDate = (date) => {

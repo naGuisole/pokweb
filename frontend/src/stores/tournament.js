@@ -51,11 +51,27 @@ export const useTournamentStore = defineStore('tournament', {
 
     // Prochain tournoi planifié
     nextTournament: (state) => {
-      if (!Array.isArray(state.tournaments) || state.tournaments.length === 0) return null
-      const now = new Date()
-      return state.tournaments
-        .filter(t => t.status === 'PLANNED' && new Date(t.date) > now)
-        .sort((a, b) => new Date(a.date) - new Date(b.date))[0]
+      console.log("Calcul nextTournament, tournaments:", state.tournaments);
+      if (!Array.isArray(state.tournaments) || state.tournaments.length === 0) {
+        console.log("Pas de tournois ou format incorrect");
+        return null;
+      }
+      
+      const now = new Date();
+      const plannedTournaments = state.tournaments
+        .filter(t => t.status === 'PLANNED' && new Date(t.date) > now);
+      
+      console.log("Tournois planifiés:", plannedTournaments);
+      
+      if (plannedTournaments.length === 0) {
+        console.log("Pas de tournois planifiés à venir");
+        return null;
+      }
+      
+      // Trier par date (du plus proche au plus éloigné)
+      const sorted = plannedTournaments.sort((a, b) => new Date(a.date) - new Date(b.date));
+      console.log("Tournoi le plus proche:", sorted[0]);
+      return sorted[0];
     },
     
     // Vérifier si un utilisateur est inscrit à un tournoi
@@ -100,6 +116,14 @@ export const useTournamentStore = defineStore('tournament', {
       }
       const eliminatedPlayers = state.currentTournament.players.filter(p => p.is_eliminated)
       return eliminatedPlayers.length + 1
+    },
+
+    // Dernier tournoi terminé
+    lastCompletedTournament: (state) => {
+      if (!Array.isArray(state.tournaments) || state.tournaments.length === 0) return null
+      return state.tournaments
+        .filter(t => t.status === 'COMPLETED')
+        .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
     }
 
   },
@@ -107,44 +131,36 @@ export const useTournamentStore = defineStore('tournament', {
   actions: {
     // Chargement de la liste des tournois
     async fetchTournaments() {
-      this.loading = true
+      this.loading = true;
       try {
-        const response = await tournamentService.getTournaments(
-          this.filters,
-          this.pagination.page,
-          this.pagination.itemsPerPage
-        )
+        // Réinitialiser les filtres pour s'assurer d'obtenir tous les tournois
+        const tempFilters = { ...this.filters };
+        this.filters = { status: null, type: null };
         
-        // Déterminer le bon format de la réponse
+        const response = await tournamentService.getTournaments(this.filters);
+        
+        // Restaurer les filtres originaux
+        this.filters = tempFilters;
+        
+        console.log("API Response:", response);
+        
         if (Array.isArray(response)) {
-          // La réponse est directement un tableau de tournois
-          this.tournaments = response
-          console.log(`Chargé ${response.length} tournois avec succès (format tableau)`)
-        } else if (Array.isArray(response.data)) {
-          // La réponse est un objet avec une propriété data qui est un tableau
-          this.tournaments = response.data
-          console.log(`Chargé ${response.data.length} tournois avec succès (format {data: []})`)
+          this.tournaments = response;
+        } else if (response && Array.isArray(response.data)) {
+          this.tournaments = response.data;
         } else {
-          // Format inattendu, créer un tableau vide
-          console.warn('Format de réponse inattendu:', response)
-          this.tournaments = []
+          console.warn('Format de réponse inattendu:', response);
+          this.tournaments = [];
         }
         
-        // Mettre à jour la pagination si les informations sont disponibles
-        if (response && typeof response.total === 'number') {
-          this.pagination.totalItems = response.total
-        } else if (Array.isArray(this.tournaments)) {
-          this.pagination.totalItems = this.tournaments.length
-        }
-        
-        return this.tournaments
+        return this.tournaments;
       } catch (error) {
-        this.error = 'Erreur lors du chargement des tournois'
-        console.error('Erreur chargement tournois:', error)
-        this.tournaments = []
-        throw error
+        this.error = 'Erreur lors du chargement des tournois';
+        console.error('Erreur chargement tournois:', error);
+        this.tournaments = [];
+        throw error;
       } finally {
-        this.loading = false
+        this.loading = false;
       }
     },
 
