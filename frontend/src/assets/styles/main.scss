@@ -1,0 +1,180 @@
+/* src/assets/styles/main.scss */
+
+// Variables globales
+:root {
+    --primary-color: #1976D2;
+    --secondary-color: #424242;
+    --success-color: #4CAF50;
+    --error-color: #FF5252;
+    --warning-color: #FB8C00;
+    --info-color: #2196F3;
+    --background-color: #F5F5F5;
+  }
+  
+  // Styles globaux
+  html, body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--background-color);
+  }
+  
+  // Classes utilitaires
+  .cursor-pointer {
+    cursor: pointer;
+  }
+  
+  .transition-all {
+    transition: all 0.3s ease;
+  }
+  
+  // Styles des cartes
+  .v-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  
+    &:hover {
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+    }
+  }
+  
+  // Styles des tables de poker
+  .poker-table {
+    background: linear-gradient(145deg, #0f5c2e, #1a7a3e);
+    border: 15px solid #8B4513;
+    border-radius: 50%;
+    box-shadow: 
+      0 8px 16px rgba(0, 0, 0, 0.2),
+      inset 0 4px 8px rgba(255, 255, 255, 0.1);
+  }
+  
+  // Styles des joueurs sur la table
+  .player-spot {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(4px);
+    border-radius: 50%;
+    padding: 8px;
+  
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  
+    &.eliminated {
+      opacity: 0.5;
+    }
+  }
+  
+  // Animation pour le timer
+  @keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.6; }
+    100% { opacity: 1; }
+  }
+  
+  .timer-warning {
+    animation: pulse 1s infinite;
+    color: var(--warning-color);
+  }
+  
+  // Styles des tableaux
+  .v-data-table {
+    .v-data-table__wrapper {
+      border-radius: 8px;
+    }
+    
+    thead th {
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+  }
+  
+  // Styles des formulaires
+  .v-form {
+    .v-text-field,
+    .v-select,
+    .v-textarea {
+      margin-bottom: 16px;
+    }
+  }
+  
+  // Styles des boutons
+  .v-btn {
+    text-transform: none;
+    letter-spacing: 0.5px;
+  }
+  
+  // Styles des chips
+  .v-chip {
+    font-weight: 500;
+  }
+  
+  // Styles pour les statistiques
+  .stats-card {
+    text-align: center;
+    padding: 16px;
+  
+    .stats-value {
+      font-size: 2rem;
+      font-weight: bold;
+      margin: 8px 0;
+    }
+  
+    .stats-label {
+      color: rgba(0, 0, 0, 0.6);
+      font-size: 0.9rem;
+    }
+  }
+  
+  // Styles du blog
+  .blog-post {
+    .blog-title {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+    }
+  
+    .blog-meta {
+      font-size: 0.9rem;
+      color: rgba(0, 0, 0, 0.6);
+      margin-bottom: 16px;
+    }
+  
+    .blog-content {
+      line-height: 1.6;
+    }
+  }
+  
+  // Styles des alertes et notifications
+  .v-snackbar {
+    .v-snackbar__content {
+      font-weight: 500;
+    }
+  }
+  
+  // Media queries pour la responsivité
+  @media (max-width: 600px) {
+    .v-card-title {
+      font-size: 1.25rem;
+    }
+  
+    .poker-table {
+      border-width: 10px;
+    }
+  
+    .stats-card {
+      .stats-value {
+        font-size: 1.5rem;
+      }
+    }
+  }
+  
+  // Styles d'impression
+  @media print {
+    .no-print {
+      display: none !important;
+    }
+  
+    .v-card {
+      box-shadow: none !important;
+      border: 1px solid #ddd;
+    }
+  }
