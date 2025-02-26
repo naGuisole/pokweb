@@ -66,7 +66,42 @@ export const useTournamentStore = defineStore('tournament', {
       if (!tournament || !Array.isArray(tournament.registered_players)) return false
       
       return tournament.registered_players.some(player => player.id === userId)
+    },
+
+    // Joueurs actifs du tournoi en cours
+    getActivePlayers: (state) => {
+      if (!state.currentTournament || !state.currentTournament.players) {
+        return []
+      }
+      return state.currentTournament.players.filter(p => !p.is_eliminated)
+    },
+    
+    // Joueurs éliminés du tournoi en cours
+    getEliminatedPlayers: (state) => {
+      if (!state.currentTournament || !state.currentTournament.players) {
+        return []
+      }
+      return state.currentTournament.players.filter(p => p.is_eliminated)
+        .sort((a, b) => (a.final_position || 999) - (b.final_position || 999))
+    },
+    
+    // Nombre total de joueurs dans le tournoi en cours
+    getCurrentTournamentPlayersCount: (state) => {
+      if (!state.currentTournament || !state.currentTournament.players) {
+        return 0
+      }
+      return state.currentTournament.players.length
+    },
+    
+    // Position pour la prochaine élimination
+    getNextEliminationPosition: (state) => {
+      if (!state.currentTournament || !state.currentTournament.players) {
+        return 1
+      }
+      const eliminatedPlayers = state.currentTournament.players.filter(p => p.is_eliminated)
+      return eliminatedPlayers.length + 1
     }
+
   },
 
   actions: {
