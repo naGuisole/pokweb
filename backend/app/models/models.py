@@ -41,9 +41,9 @@ class TournamentStatus(enum.Enum):
     """
     Statuts possibles pour un tournoi
     """
-    PLANNED = "Planifié"  # Créé mais pas encore commencé
-    IN_PROGRESS = "En cours"  # Tournoi en cours
-    COMPLETED = "Terminé"  # Tournoi terminé
+    PLANNED = "PLANNED"  # Créé mais pas encore commencé
+    IN_PROGRESS = "IN_PROGRESS"  # Tournoi en cours
+    COMPLETED = "COMPLETED"  # Tournoi terminé
 
 
 class Tournament(Base):

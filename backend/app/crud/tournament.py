@@ -28,7 +28,7 @@ def create_tournament(db: Session, tournament: TournamentCreate, admin_id: int) 
         raise ValueError("L'administrateur doit appartenir à la ligue")
 
     # Vérifier que le tournoi n'existe pas déja (sous le meme nom)
-    if not db.query(Tournament).filter(Tournament.name == tournament.name).first():
+    if db.query(Tournament).filter(Tournament.name == tournament.name).first():
         raise ValueError("Un tournoi existe déja avec ce nom : " + tournament.name)
 
 

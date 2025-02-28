@@ -51,17 +51,32 @@ export const useTournamentStore = defineStore('tournament', {
 
     // Prochain tournoi planifié
     nextTournament: (state) => {
-      console.log("Calcul nextTournament, tournaments:", state.tournaments);
       if (!Array.isArray(state.tournaments) || state.tournaments.length === 0) {
         console.log("Pas de tournois ou format incorrect");
         return null;
       }
       
-      const now = new Date();
-      const plannedTournaments = state.tournaments
-        .filter(t => t.status === 'PLANNED' && new Date(t.date) > now);
+      // Conversion de la date actuelle en timestamp pour comparaison
+      const now = new Date().getTime();
       
-      console.log("Tournois planifiés:", plannedTournaments);
+      // Filtrer les tournois planifiés dont la date est future
+      const plannedTournaments = state.tournaments.filter(t => {
+
+        console.log(`Tournoi ${t.id}: ${t.name}, date: ${t.date}, status: ${t.status}`);
+
+
+        if (t.status !== 'PLANNED') return false;
+        
+        // S'assurer que la date est bien parsée
+        const tournamentDate = new Date(t.date).getTime();
+        const isFuture = tournamentDate > now;
+        
+        console.log(`Tournoi ${t.id}: ${t.name}, date: ${t.date}, timestamp: ${tournamentDate}, isFuture: ${isFuture}`);
+        
+        return isFuture;
+      });
+      
+      console.log("Tournois planifiés à venir:", plannedTournaments);
       
       if (plannedTournaments.length === 0) {
         console.log("Pas de tournois planifiés à venir");
@@ -69,8 +84,8 @@ export const useTournamentStore = defineStore('tournament', {
       }
       
       // Trier par date (du plus proche au plus éloigné)
-      const sorted = plannedTournaments.sort((a, b) => new Date(a.date) - new Date(b.date));
-      console.log("Tournoi le plus proche:", sorted[0]);
+      const sorted = plannedTournaments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      console.log("Prochain tournoi:", sorted[0]);
       return sorted[0];
     },
     

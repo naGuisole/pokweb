@@ -277,7 +277,7 @@
   </template>
   
   <script setup>
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { format } from 'date-fns'
   import { fr } from 'date-fns/locale'
@@ -300,13 +300,6 @@
   const lastTournament = computed(() => tournamentStore.lastCompletedTournament)
 
 
-  // FIXME : tmp Ajoutez après les computed properties existantes
-  watch(() => tournamentStore.tournaments, (newTournaments) => {
-    console.log("Tournois chargés:", newTournaments);
-    console.log("Prochain tournoi:", nextTournament.value);
-    console.log("Dernier tournoi:", lastTournament.value);
-  }, { immediate: true });
-  
   // Fonctions utilitaires
   const formatDate = (date) => {
     return format(new Date(date), 'PPP à HH:mm', { locale: fr })
@@ -366,6 +359,9 @@
           fetchClayTokenHolder(),
           fetchBountyHunters()
         ])
+        console.log("Tournois chargés:", tournamentStore.tournaments);
+        console.log("Prochain tournoi:", nextTournament.value);
+        console.log("Dernier tournoi:", lastTournament.value);
       } catch (error) {
         console.error('Erreur lors du chargement des données:', error)
       }
