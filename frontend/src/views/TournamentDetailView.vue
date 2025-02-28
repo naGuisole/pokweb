@@ -241,6 +241,17 @@
       @rebuy-confirmed="confirmRebuy"
       @elimination-confirmed="confirmElimination"
     />
+
+    <!-- Notifications en temps réel -->
+    <div class="notifications-container">
+      <div 
+        v-for="notification in notifications"
+        :key="notification.id"
+        :class="['notification', `notification-${notification.type}`]"
+      >
+        {{ notification.message }}
+      </div>
+    </div>
   </v-container>
 </template>
 
@@ -251,6 +262,7 @@ import { useTournamentStore } from '@/stores/tournament'
 import { useAuthStore } from '@/stores/auth'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { websocketService } from '@/services/websocket.service'
 
 import TournamentTable from '@/components/tournament/TournamentTable.vue'
 import TournamentTimer from '@/components/tournament/TournamentTimer.vue'
@@ -268,6 +280,8 @@ const dealerPosition = ref(0)
 const isPaused = ref(false)
 const updateInterval = ref(null)
 const loading = ref(true)
+const wsEventListeners = ref([])
+const wsConnected = ref(false)
 
 // Computed
 const tournament = computed(() => tournamentStore.currentTournament)
@@ -359,6 +373,131 @@ const getStatusLabel = (status) => {
 const getPlayersAtTable = (tableIndex) => {
   if (!activePlayers.value || activePlayers.value.length === 0) return []
   return activePlayers.value.filter(player => (player.table || 0) === tableIndex)
+}
+
+// Méthodes WebSocket
+const setupWebSocketListeners = () => {
+  // Stocker les déregistrements pour les exécuter lors du nettoyage
+  const removeListeners = []
+  
+  // Événement d'initialisation
+  removeListeners.push(
+    websocketService.on('initial_state', (data) => {
+      console.log('Received initial state:', data)
+      isPaused.value = data.paused
+      currentLevel.value = data.current_level
+      
+      // Rafraîchir les données du tournoi si nécessaire
+      if (data.status !== tournament.value?.status) {
+        refreshTournament()
+      }
+    })
+  )
+  
+  // Changement de niveau
+  removeListeners.push(
+    websocketService.on('level_changed', (data) => {
+      console.log('Level changed:', data)
+      currentLevel.value = data.level
+      
+      // Vous pourriez vouloir mettre à jour d'autres états ici
+      // comme les blindes actuelles, etc.
+    })
+  )
+  
+  // Changement d'état de pause
+  removeListeners.push(
+    websocketService.on('pause_status_changed', (data) => {
+      console.log('Pause status changed:', data)
+      isPaused.value = data.paused
+    })
+  )
+  
+  // Élimination de joueur
+  removeListeners.push(
+    websocketService.on('player_eliminated', (data) => {
+      console.log('Player eliminated:', data)
+      // Mettre à jour la liste des joueurs
+      refreshTournament()
+      
+      // Peut-être afficher une notification temporaire
+      const playerName = tournament.value?.participations.find(
+        p => p.user_id === data.player_id
+      )?.user?.username || 'Un joueur'
+      
+      showNotification(`${playerName} a été éliminé en position ${data.position}`, 'info')
+    })
+  )
+  
+  // Rebuy de joueur
+  removeListeners.push(
+    websocketService.on('player_rebuy', (data) => {
+      console.log('Player rebuy:', data)
+      // Mettre à jour la liste des joueurs
+      refreshTournament()
+      
+      // Peut-être afficher une notification temporaire
+      const playerName = tournament.value?.participations.find(
+        p => p.user_id === data.player_id
+      )?.user?.username || 'Un joueur'
+      
+      showNotification(`${playerName} a fait un rebuy de ${data.chips_added} jetons`, 'info')
+    })
+  )
+  
+  // Mise à jour des tables
+  removeListeners.push(
+    websocketService.on('tables_updated', (data) => {
+      console.log('Tables updated:', data)
+      if (tournament.value) {
+        tournament.value.tables_state = data.tables_state
+      }
+    })
+  )
+  
+  // Stocker les fonctions de nettoyage pour onUnmounted
+  wsEventListeners.value = removeListeners
+}
+
+const connectToWebSocket = async () => {
+  if (wsConnected.value) return
+  
+  try {
+    const tournamentId = parseInt(route.params.id)
+    if (isNaN(tournamentId)) return
+    
+    await websocketService.connect(tournamentId)
+    wsConnected.value = true
+    setupWebSocketListeners()
+  } catch (error) {
+    console.error('Failed to connect to WebSocket:', error)
+    // Fallback to polling if WebSocket fails
+    startPeriodicUpdate()
+  }
+}
+
+const disconnectWebSocket = () => {
+  // Nettoyer les écouteurs
+  wsEventListeners.value.forEach(removeListener => removeListener())
+  wsEventListeners.value = []
+  
+  // Déconnecter le WebSocket
+  websocketService.disconnect()
+  wsConnected.value = false
+}
+
+// Système de notification
+const notifications = ref([])
+const notificationTimeout = ref(null)
+
+const showNotification = (message, type = 'info') => {
+  const id = Date.now()
+  notifications.value.push({ id, message, type })
+  
+  // Supprimer la notification après 5 secondes
+  setTimeout(() => {
+    notifications.value = notifications.value.filter(n => n.id !== id)
+  }, 5000)
 }
 
 // Actions du tournoi
@@ -499,7 +638,7 @@ const refreshTournament = async () => {
     // Mettre à jour d'autres informations
     if (tournament.value?.status === 'IN_PROGRESS') {
       currentLevel.value = tournament.value.current_level || 1
-      isPaused.value = tournament.value.paused || false
+      isPaused.value = tournament.value.paused_at !== null
     }
   } catch (error) {
     console.error('Erreur lors du rafraîchissement du tournoi:', error)
@@ -520,8 +659,15 @@ onMounted(async () => {
     
     if (tournament.value?.status === 'IN_PROGRESS') {
       currentLevel.value = tournament.value.current_level || 1
-      isPaused.value = tournament.value.paused || false
-      startPeriodicUpdate()
+      isPaused.value = tournament.value.paused_at !== null
+      
+      // Utiliser WebSocket pour les mises à jour en temps réel
+      await connectToWebSocket()
+      
+      // Fallback to polling if WebSocket is not available
+      if (!wsConnected.value) {
+        startPeriodicUpdate()
+      }
     }
   } catch (error) {
     console.error('Erreur lors du chargement initial:', error)
@@ -532,14 +678,27 @@ onMounted(async () => {
 
 onUnmounted(() => {
   stopPeriodicUpdate()
+  disconnectWebSocket()
 })
 
 // Surveiller les changements d'ID de tournoi dans l'URL
 watch(() => route.params.id, async (newId) => {
   if (newId) {
+    // Déconnecter l'ancien WebSocket
+    disconnectWebSocket()
+    stopPeriodicUpdate()
+    
     loading.value = true
     try {
       await refreshTournament()
+      
+      if (tournament.value?.status === 'IN_PROGRESS') {
+        await connectToWebSocket()
+        
+        if (!wsConnected.value) {
+          startPeriodicUpdate()
+        }
+      }
     } finally {
       loading.value = false
     }
@@ -559,5 +718,54 @@ watch(() => route.params.id, async (newId) => {
 
 .eliminated {
   opacity: 0.6;
+}
+
+.notifications-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  max-width: 80%;
+  width: 300px;
+}
+
+.notification {
+  margin-top: 10px;
+  padding: 12px 16px;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  animation: slideIn 0.3s ease-out forwards;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.notification-info {
+  background-color: #1976D2;
+  color: white;
+}
+
+.notification-success {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.notification-warning {
+  background-color: #FB8C00;
+  color: white;
+}
+
+.notification-error {
+  background-color: #F44336;
+  color: white;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 </style>

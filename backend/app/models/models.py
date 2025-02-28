@@ -68,7 +68,10 @@ class Tournament(Base):
     start_time = Column(DateTime(timezone=True), nullable=True)  # Heure réelle de début
     end_time = Column(DateTime(timezone=True), nullable=True)  # Heure de fin
     current_level = Column(Integer, default=0)  # Niveau actuel des blindes
-    paused_at = Column(DateTime(timezone=True), nullable=True)  # Pour la gestion de pause
+    seconds_remaining = Column(Integer, nullable=True)  # Temps restant dans le niveau actuel
+    level_duration = Column(Integer, nullable=True)  # Durée totale du niveau en secondes
+    paused_at = Column(DateTime(timezone=True), nullable=True)  # Horodatage de la dernière mise en pause
+    last_timer_update = Column(DateTime(timezone=True), nullable=True)  # Dernier moment où le timer a été mis à jour
 
     # Paramètres du tournoi
     max_players = Column(Integer, nullable=False)
@@ -124,8 +127,6 @@ class TournamentParticipation(Base):
     current_position = Column(Integer, nullable=True)  # Position finale ou actuelle
 
     # Gestion des jetons et de l'argent
-    initial_chips = Column(Float, nullable=False)  # Jetons de départ
-    current_chips = Column(Float, nullable=True)  # Jetons actuels (si en jeu)
     num_rebuys = Column(Integer, default=0)  # Nombre de rebuys effectués
     total_buyin = Column(Float, default=0)  # Buy-in total (initial + rebuys)
     prize_won = Column(Float, default=0)  # Gains éventuels

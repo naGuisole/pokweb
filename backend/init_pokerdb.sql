@@ -105,13 +105,10 @@ CREATE TABLE tournament_participations (
    registration_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
    elimination_time TIMESTAMP NULL,
    current_position INT NULL,
-   initial_chips DECIMAL(10,2) NOT NULL,
-   current_chips DECIMAL(10,2) NULL,
    num_rebuys INT DEFAULT 0,
    total_buyin DECIMAL(10,2) DEFAULT 0,
    prize_won DECIMAL(10,2) DEFAULT 0,
    action_history JSON,
-   league_id INT NOT NULL,
    FOREIGN KEY (tournament_id) REFERENCES tournaments(id),
    FOREIGN KEY (user_id) REFERENCES users(id),
    FOREIGN KEY (league_id) REFERENCES leagues(id)

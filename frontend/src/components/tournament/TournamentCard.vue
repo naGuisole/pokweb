@@ -218,7 +218,7 @@
     if (registering.value) return
     registering.value = true
     try {
-      await emit('register')
+      await emit('register', props.tournament.id)
     } finally {
       registering.value = false
     }
@@ -228,7 +228,7 @@
     if (registering.value) return
     registering.value = true
     try {
-      await emit('unregister')
+      await emit('unregister', props.tournament.id)
     } finally {
       registering.value = false
     }

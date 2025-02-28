@@ -2,23 +2,40 @@
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
+
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from .config import settings
-from .routes import auth, users, tournaments, blog, configurations, leagues
+from .routes import auth, users, tournaments, blog, configurations, leagues, websockets
 import logging
+from .services.timer_service import start_timer_service, stop_timer_service
+
 
 # Au début du fichier, après les imports
 validation_logger = logging.getLogger("validation")
 validation_logger.setLevel(logging.DEBUG)
 
+
+# Context manager pour le startup/shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: démarrer le service de timer
+    await start_timer_service()
+
+    yield
+
+    # Shutdown: arrêter le service de timer
+    await stop_timer_service()
+
 # Création de l'application FastAPI
 app = FastAPI(
     title=settings.APP_NAME,
     description="pokweb : application de gestion de tournois de poker. Notamment pour le célèbre JAPT",
-    version="0.1.0"
+    version="0.1.0",
+    lifespan=lifespan
 )
 
 
@@ -140,6 +157,9 @@ app.include_router(blog.router, prefix="/blog", tags=["Blog"])
 app.include_router(configurations.router, prefix="/configurations", tags=["Configurations"])
 app.include_router(leagues.router, prefix="/leagues", tags=["Ligues"])
 
+# Inclusion des routes WebSocket après les autres routes
+app.include_router(websockets.router, prefix="/ws", tags=["WebSockets"])
+
 print("Available routes:")
 for route in app.routes:
     if hasattr(route, "methods"):  # Routes API traditionnelles
@@ -147,6 +167,12 @@ for route in app.routes:
     else:  # Points de montage (Mount objects)
         print(f"STATIC FILES {route.path}")
 
+# Fonction pour gérer les erreurs WebSocket
+@app.exception_handler(websockets.WebSocketDisconnect)
+async def websocket_disconnect_handler(request, exc):
+    # Les déconnexions WebSocket sont normales, nous les loggons simplement
+    logging.info(f"WebSocket client disconnected with code: {exc.code}")
+    return None
 
 
 @app.get("/")
