@@ -126,22 +126,18 @@ async def notify_tournament_started(tournament_id: int, db: Session):
         )
 
 
-async def notify_level_change(tournament_id: int, new_level: int, db: Session):
-    tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
-    if tournament and tournament.configuration:
-        blinds_structure = tournament.configuration.blinds_structure
-        current_level_data = next((l for l in blinds_structure if l.get("level") == new_level), None)
-
-        await broadcast_tournament_event(
-            tournament_id,
-            "level_changed",
-            {
-                "level": new_level,
-                "small_blind": current_level_data["small_blind"] if current_level_data else None,
-                "big_blind": current_level_data["big_blind"] if current_level_data else None,
-                "duration": current_level_data["duration"] if current_level_data else None
-            }
-        )
+async def notify_level_change(tournament_id: int, new_level: int, level_data: dict = None, start_time: str = None):
+    await broadcast_tournament_event(
+        tournament_id,
+        "level_changed",
+        {
+            "level": new_level,
+            "small_blind": level_data["small_blind"] if level_data else None,
+            "big_blind": level_data["big_blind"] if level_data else None,
+            "duration": level_data["duration"] if level_data else None,
+            "level_start_time": start_time  # Nouveau: temps de début du niveau
+        }
+    )
 
 
 async def notify_pause_status(tournament_id: int, is_paused: bool):
@@ -181,4 +177,16 @@ async def notify_table_update(tournament_id: int, tables_state: dict):
         tournament_id,
         "tables_updated",
         {"tables_state": tables_state}
+    )
+
+# Ajouter la fonction de notification de timer (envoyée périodiquement)
+async def notify_timer_tick(tournament_id: int, seconds_remaining: int, total_seconds: int):
+    await broadcast_tournament_event(
+        tournament_id,
+        "timer_tick",
+        {
+            "seconds_remaining": seconds_remaining,
+            "total_seconds": total_seconds,
+            "percentage": (total_seconds - seconds_remaining) / total_seconds * 100
+        }
     )

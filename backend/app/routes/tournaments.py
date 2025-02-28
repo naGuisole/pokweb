@@ -258,8 +258,8 @@ async def eliminate_player(
         tournament_id: int,
         player_id: int,
         position: int,
-        prize_amount: float = 0,
         background_tasks: BackgroundTasks,
+        prize_amount: float = 0,
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
