@@ -136,8 +136,6 @@ def register_player(db: Session, tournament_id: int, user_id: int) -> Tournament
     participation = TournamentParticipation(
         tournament_id=tournament_id,
         user_id=user_id,
-        initial_chips=tournament.configuration.starting_chips,
-        current_chips=tournament.configuration.starting_chips,
         total_buyin=tournament.buy_in
     )
     
@@ -172,8 +170,7 @@ def process_elimination(
     participation.elimination_time = datetime.utcnow()
     participation.current_position = final_position
     participation.prize_won = prize_amount
-    participation.current_chips = 0
-    
+
     db.commit()
     db.refresh(participation)
     return participation
@@ -201,8 +198,7 @@ def process_rebuy(
     # Mettre à jour les statistiques du rebuy
     participation.num_rebuys += 1
     participation.total_buyin += rebuy_amount
-    participation.current_chips += participation.tournament.configuration.starting_chips
-    
+
     # Mettre à jour les totaux du tournoi
     tournament = participation.tournament
     tournament.total_buyin += rebuy_amount

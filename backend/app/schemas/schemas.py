@@ -239,7 +239,6 @@ class ParticipationUpdate(BaseModel):
     """
     Mise à jour de la participation d'un joueur
     """
-    current_chips: Optional[float] = None
     is_active: Optional[bool] = None
     elimination_time: Optional[datetime] = None
     current_position: Optional[int] = None
@@ -255,8 +254,6 @@ class ParticipationResponse(ParticipationBase):
     registration_time: datetime
     elimination_time: Optional[datetime]
     current_position: Optional[int]
-    initial_chips: float
-    current_chips: Optional[float]
     num_rebuys: int
     total_buyin: float
     prize_won: float
