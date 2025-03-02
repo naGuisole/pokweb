@@ -61,12 +61,10 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = null
       try {
-        const user = await authService.register(userData)
+        console.log("Register dans store:", userData);
         
-        // Si une image de profil est incluse, on la traite séparément
-        if (userData.profile_image) {
-          await authService.uploadProfileImage(userData.profile_image)
-        }
+        // Inscription par l'API
+        const user = await authService.register(userData)
         
         return user
       } catch (error) {
@@ -118,6 +116,8 @@ export const useAuthStore = defineStore('auth', {
       this.loading = true
       this.error = null
       try {
+        console.log('uploadProfileImage in store with file:', file);
+        
         const response = await authService.uploadProfileImage(file)
         this.user = {
           ...this.user,
@@ -209,7 +209,5 @@ export const useAuthStore = defineStore('auth', {
     clearError() {
       this.error = null
     }
-
-    
   }
 })

@@ -13,8 +13,6 @@ from ..crud import league as league_crud
 router = APIRouter()
 
 
-
-
 @router.post("/", response_model=LeagueResponse)
 async def create_league(
         league: LeagueCreate,
@@ -24,13 +22,9 @@ async def create_league(
     print("création ligue")
 
     """Crée une nouvelle ligue avec l'utilisateur courant comme admin"""
+    # La fonction create_league ajoute déjà l'utilisateur courant comme admin
     db_league = league_crud.create_league(db, league, current_user.id)
 
-    # Ajouter le créateur comme admin
-    league_admin = LeagueAdmin(league_id=db_league.id, user_id=current_user.id)
-    db.add(league_admin)
-
-    db.commit()
     return db_league
 
 
@@ -53,8 +47,8 @@ async def get_leagues(
 
 @router.get("/{league_id}", response_model=LeagueResponse)
 async def get_league(
-    league_id: int,
-    db: Session = Depends(get_db)
+        league_id: int,
+        db: Session = Depends(get_db)
 ):
     league = league_crud.get_league_with_members(db, league_id)
     if not league:

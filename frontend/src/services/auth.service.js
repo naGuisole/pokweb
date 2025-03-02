@@ -16,25 +16,70 @@ export const authService = {
   },
 
   async register(userData) {
-    // Séparation des données utilisateur et de l'image
-    const { profile_image, ...userInfo } = userData
-
+    console.log('Register userData in service with detailed inspection:');
+    // Inspecter l'objet File s'il existe
+    if (userData.profile_image) {
+      console.log('Profile image details:');
+      console.log('- Name:', userData.profile_image.name);
+      console.log('- Size:', userData.profile_image.size);
+      console.log('- Type:', userData.profile_image.type);
+    } else {
+      console.log('No profile image provided');
+    }
+    
+    // Créer un objet pour les données utilisateur sans l'image
+    const userDataWithoutImage = {};
+    for (const key in userData) {
+      if (key !== 'profile_image' && key !== 'league') {
+        userDataWithoutImage[key] = userData[key];
+      }
+    }
+    
+    // Gérer la ligue séparément
+    if (userData.league) {
+      userDataWithoutImage.league = userData.league;
+    }
+    
+    console.log('User data being sent to API:', userDataWithoutImage);
+    
     // Première requête : création de l'utilisateur
-    const response = await api.post('/auth/register', userInfo)
-
-    // Si une image est fournie, on l'envoie dans une seconde requête
-    if (profile_image) {
-      const formData = new FormData()
-      formData.append('profile_image', profile_image)
-
-      await api.post('/users/profile/image', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
+    const response = await api.post('/auth/register', userDataWithoutImage);
+    
+    // Se connecter automatiquement après l'inscription pour obtenir un token
+    if (userData.email && userData.password) {
+      try {
+        console.log('Auto-login after registration...');
+        const loginResponse = await this.login(userData.email, userData.password);
+        
+        // Stocker le token pour les requêtes suivantes
+        localStorage.setItem('token', loginResponse.access_token);
+        
+        // Si une image est fournie, maintenant qu'on est authentifié, on peut l'envoyer
+        if (userData.profile_image) {
+          console.log('Uploading profile image after successful login');
+          
+          const formData = new FormData();
+          formData.append('image', userData.profile_image);
+          
+          try {
+            console.log('Posting image to API...');
+            const imageResponse = await api.post('/users/profile/image', formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data'
+              }
+            });
+            console.log('Profile image uploaded successfully:', imageResponse.data);
+          } catch (imageError) {
+            console.error('Error uploading profile image:', imageError);
+            console.error('Error details:', imageError.response?.data);
+          }
         }
-      })
+      } catch (loginError) {
+        console.error('Error logging in after registration:', loginError);
+      }
     }
 
-    return response.data
+    return response.data;
   },
 
   async getProfile() {
@@ -59,6 +104,8 @@ export const authService = {
   },
 
   async uploadProfileImage(file) {
+    console.log('uploadProfileImage called with:', file);
+    
     const formData = new FormData()
     formData.append('image', file)
     

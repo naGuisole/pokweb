@@ -56,21 +56,48 @@
       autocomplete="street-address"
     ></v-text-field>
 
-    <league-selector
-      v-model="leagueData"
-      class="mt-4"
-    ></league-selector>
-    <div class="text-caption text-grey">
-      Vous pourrez rejoindre ou créer une ligue plus tard
-    </div>
+    <!-- Sélection de ligue simplifiée -->
+    <v-card variant="outlined" class="pa-4 mb-4">
+      <v-select
+        v-model="selectedLeagueId"
+        :items="availableLeagues"
+        item-title="name"
+        item-value="id"
+        label="Ligue (optionnel)"
+        prepend-inner-icon="mdi-shield-home"
+        clearable
+        :loading="loadingLeagues"
+        no-data-text="Aucune ligue disponible"
+      >
+        <template v-slot:prepend>
+          <v-tooltip location="top">
+            <template v-slot:activator="{ props }">
+              <v-icon v-bind="props" color="info">mdi-information-outline</v-icon>
+            </template>
+            Vous pourrez également créer ou rejoindre une ligue plus tard
+          </v-tooltip>
+        </template>
+      </v-select>
+      <div class="text-caption text-grey mt-2">
+        La sélection d'une ligue est optionnelle. Vous pourrez en créer une ou en rejoindre une plus tard.
+      </div>
+    </v-card>
 
-    <v-file-input
-      v-model="optionalFormData.profile_image"
-      label="Photo de profil"
-      prepend-icon="mdi-camera"
-      accept="image/*"
-      show-size
-    ></v-file-input>
+    <!-- Input file natif pour la photo de profil -->
+    <div class="custom-file-input my-4">
+      <label for="profile-image" class="mb-2 d-block">Photo de profil</label>
+      <input
+        type="file"
+        id="profile-image"
+        ref="profileImageInput"
+        accept="image/*"
+        @change="onFileChange"
+      />
+      <div v-if="imagePreview" class="mt-2">
+        <img :src="imagePreview" alt="Prévisualisation" style="max-width: 200px; max-height: 200px;" />
+        <div class="mt-1">{{ selectedFile ? selectedFile.name : '' }}</div>
+      </div>
+    </div>
 
     <v-alert
       v-if="error"
@@ -94,9 +121,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import LeagueSelector from '@/components/league/LeagueSelector.vue'
+import api from '@/services/api'
 
 const emit = defineEmits(['submit'])
 const authStore = useAuthStore()
@@ -106,10 +133,17 @@ const form = ref(null)
 const loading = ref(false)
 const error = ref(null)
 const showPassword = ref(false)
+const profileImageInput = ref(null)
+const selectedFile = ref(null)
+const imagePreview = ref(null)
+
+// État des ligues
+const availableLeagues = ref([])
+const loadingLeagues = ref(false)
+const selectedLeagueId = ref(null)
 
 const optionalFormData = ref({
-  address: '',
-  profile_image: null
+  address: ''
 })
 
 const requiredFormData = ref({
@@ -120,7 +154,38 @@ const requiredFormData = ref({
   password: ''
 })
 
-const leagueData = ref({})
+// Chargement des ligues
+const fetchLeagues = async () => {
+  loadingLeagues.value = true
+  try {
+    const response = await api.get('/leagues/')
+    availableLeagues.value = response.data
+  } catch (error) {
+    console.error('Erreur lors du chargement des ligues:', error)
+  } finally {
+    loadingLeagues.value = false
+  }
+}
+
+// Gestionnaire pour le changement de fichier
+const onFileChange = (event) => {
+  const file = event.target.files[0]
+  
+  if (file) {
+    console.log('File selected:', file.name, file.type, file.size)
+    selectedFile.value = file
+    
+    // Prévisualisation
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      imagePreview.value = e.target.result
+    }
+    reader.readAsDataURL(file)
+  } else {
+    selectedFile.value = null
+    imagePreview.value = null
+  }
+}
 
 // Règles de validation
 const emailRules = [
@@ -163,13 +228,12 @@ const handleSubmit = async () => {
   if (!form.value.validate()) return
 
   // Validation de l'image si elle existe
-  if (optionalFormData.value.profile_image?.[0]) {
-    const file = optionalFormData.value.profile_image[0]
-    if (file.size > 2000000) {
+  if (selectedFile.value) {
+    if (selectedFile.value.size > 2000000) {
       error.value = 'L\'image doit faire moins de 2MB'
       return
     }
-    if (!file.type.startsWith('image/')) {
+    if (!selectedFile.value.type.startsWith('image/')) {
       error.value = 'Le fichier doit être une image'
       return
     }
@@ -179,17 +243,44 @@ const handleSubmit = async () => {
   error.value = null
 
   try {
+    // Préparer les données de la ligue si sélectionnée
+    let leagueData = null
+    if (selectedLeagueId.value) {
+      leagueData = { id: selectedLeagueId.value }
+    }
+
     const registerData = {
       ...requiredFormData.value,
       ...optionalFormData.value,
-      league: leagueData.value?.id ? leagueData.value : null
+      profile_image: selectedFile.value,
+      league: leagueData
     }
+    
+    console.log('Sending registration data:', registerData);
+    if (selectedFile.value) {
+      console.log('With file:', selectedFile.value.name, selectedFile.value.size, selectedFile.value.type);
+    }
+    
     await authStore.register(registerData)
     emit('submit')
   } catch (err) {
+    console.error('Registration error:', err)
     error.value = err.response?.data?.detail || 'Erreur lors de l\'inscription'
   } finally {
     loading.value = false
   }
 }
+
+// Chargement des ligues au montage du composant
+onMounted(() => {
+  fetchLeagues()
+})
 </script>
+
+<style scoped>
+.custom-file-input {
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+  padding: 16px;
+}
+</style>
