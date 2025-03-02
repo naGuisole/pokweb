@@ -19,6 +19,7 @@ CREATE TABLE users (
    last_name VARCHAR(50) NOT NULL,
    hashed_password VARCHAR(255) NOT NULL,
    address VARCHAR(255),
+   member_status VARCHAR(255),
    profile_image_path VARCHAR(255),
    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
    last_login TIMESTAMP NULL,

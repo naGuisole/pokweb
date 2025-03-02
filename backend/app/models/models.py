@@ -153,6 +153,9 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
 
+    member_status = Column(String(255), nullable=True) # Statut de l'utilisateur dans sa ligue (PENDING ou APPROVED)
+
+
     # Relations
 
     # Relation Ligue

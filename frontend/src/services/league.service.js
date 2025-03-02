@@ -16,8 +16,6 @@ export const leagueService = {
 
   // Créer une nouvelle ligue
   async createLeague(leagueData) {
-    console.log('Token:', localStorage.getItem('token')); // Pour debug
-
     const response = await api.post('/leagues/', leagueData)
     return response.data
   },
@@ -31,6 +29,12 @@ export const leagueService = {
   // Approuver un membre (admin)
   async approveMember(leagueId, userId) {
     const response = await api.post(`/leagues/${leagueId}/approve/${userId}`)
+    return response.data
+  },
+
+  // Refuser un membre (admin)
+  async rejectMember(leagueId, userId) {
+    const response = await api.post(`/leagues/${leagueId}/reject/${userId}`)
     return response.data
   },
 

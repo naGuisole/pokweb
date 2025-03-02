@@ -79,7 +79,7 @@ export const useLeagueStore = defineStore('league', {
       this.saving = true
       try {
         await leagueService.joinLeague(leagueId)
-        await this.fetchLeague(leagueId)
+        await this.fetchLeagues()
       } catch (error) {
         this.error = error.response?.data?.detail || 'Erreur lors de la demande d\'adhésion'
         throw error
@@ -93,11 +93,21 @@ export const useLeagueStore = defineStore('league', {
       try {
         await leagueService.approveMember(leagueId, userId)
         // Rafraîchir les données de la ligue
-        if (this.currentLeague?.id === leagueId) {
-          await this.fetchLeague(leagueId)
-        }
+        await this.fetchLeagues()
       } catch (error) {
         this.error = error.response?.data?.detail || 'Erreur lors de l\'approbation du membre'
+        throw error
+      }
+    },
+
+    // Refuser une demande d'adhésion (admin seulement)
+    async rejectMember(leagueId, userId) {
+      try {
+        await leagueService.rejectMember(leagueId, userId)
+        // Rafraîchir les données de la ligue
+        await this.fetchLeagues()
+      } catch (error) {
+        this.error = error.response?.data?.detail || 'Erreur lors du refus de la demande'
         throw error
       }
     },
@@ -107,9 +117,7 @@ export const useLeagueStore = defineStore('league', {
       try {
         await leagueService.addAdmin(leagueId, userId)
         // Rafraîchir les données de la ligue
-        if (this.currentLeague?.id === leagueId) {
-          await this.fetchLeague(leagueId)
-        }
+        await this.fetchLeagues()
       } catch (error) {
         this.error = error.response?.data?.detail || 'Erreur lors de l\'ajout de l\'administrateur'
         throw error
