@@ -1,5 +1,5 @@
 # backend/app/crud/tournament.py
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, or_, desc
 from typing import Optional, List, Dict
 from datetime import datetime
@@ -51,23 +51,26 @@ def get_tournament(db: Session, tournament_id: int) -> Optional[Tournament]:
     """
     return db.query(Tournament).filter(Tournament.id == tournament_id).first()
 
+
 def list_tournaments(
-    db: Session,
-    skip: int = 0,
-    limit: int = 100,
-    status: Optional[TournamentStatus] = None,
-    tournament_type: Optional[TournamentType] = None
+        db: Session,
+        skip: int = 0,
+        limit: int = 100,
+        status: Optional[TournamentStatus] = None,
+        tournament_type: Optional[TournamentType] = None
 ) -> List[Tournament]:
     """
     Liste les tournois avec filtres optionnels
     """
-    query = db.query(Tournament).order_by(desc(Tournament.date))
-    
+    query = db.query(Tournament).options(
+        joinedload(Tournament.participations)
+    ).order_by(desc(Tournament.date))
+
     if status:
         query = query.filter(Tournament.status == status)
     if tournament_type:
         query = query.filter(Tournament.tournament_type == tournament_type)
-        
+
     return query.offset(skip).limit(limit).all()
 
 def update_tournament_status(
@@ -99,12 +102,14 @@ def register_player(db: Session, tournament_id: int, user_id: int) -> Tournament
     Inscrit un joueur à un tournoi
     """
     tournament = get_tournament(db, tournament_id)
+    print("tournament = " + str(tournament))
     if not tournament or tournament.status != TournamentStatus.PLANNED:
         raise ValueError("Tournoi non trouvé ou inscriptions closes")
 
     # Vérifier que le tournoi et l'utilisateur existent et sont dans la même ligue
     tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
     user = db.query(User).filter(User.id == user_id).first()
+    print("user = " + str(user))
 
     if not tournament or not user:
         raise ValueError("Utilisateur non trouvé")
@@ -120,7 +125,7 @@ def register_player(db: Session, tournament_id: int, user_id: int) -> Tournament
             TournamentParticipation.user_id == user_id
         )
     ).first()
-    
+    print("existing = " + str(existing))
     if existing:
         raise ValueError("Joueur déjà inscrit")
         
@@ -138,7 +143,7 @@ def register_player(db: Session, tournament_id: int, user_id: int) -> Tournament
         user_id=user_id,
         total_buyin=tournament.buy_in
     )
-    
+    print("participation = " + str(participation))
     db.add(participation)
     db.commit()
     db.refresh(participation)

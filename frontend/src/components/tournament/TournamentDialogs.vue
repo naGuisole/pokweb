@@ -1,5 +1,6 @@
 <!-- src/components/tournament/TournamentDialogs.vue -->
 <template>
+  <div>
     <!-- Dialog de Rebuy -->
     <v-dialog v-model="showRebuy" max-width="500px">
       <v-card>
@@ -160,110 +161,111 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </template>
+  </div>
+</template>
   
-  <script setup>
-  import { ref, computed } from 'vue'
-  import { useTournamentStore } from '@/stores/tournament'
+<script setup>
+import { ref, computed } from 'vue'
+import { useTournamentStore } from '@/stores/tournament'
   
-  const tournamentStore = useTournamentStore()
-  
-  // État des dialogues
-  const showRebuy = ref(false)
-  const showElimination = ref(false)
-  const showRebalance = ref(false)
-  
-  // État des formulaires
-  const rebuyForm = ref(null)
-  const eliminationForm = ref(null)
-  const rebuyValid = ref(false)
-  const eliminationValid = ref(false)
-  
-  // Données des formulaires
-  const selectedPlayer = ref(null)
-  const rebuyAmount = ref(null)
-  const chipAmount = ref(null)
-  const finalPosition = ref(null)
-  const prizeAmount = ref(0)
-  const hadClayToken = ref(false)
-  const bountyHunter = ref('')
-  
-  // Computed properties
-  const totalPlayers = computed(() => {
-    return tournamentStore.getCurrentTournamentPlayersCount
-  })
-  
-  const isJAPTTournament = computed(() => {
-    return tournamentStore.currentTournament?.tournament_type === 'JAPT'
-  })
-  
-  // Méthodes pour ouvrir les dialogues
-  const showRebuyDialog = (player) => {
-    selectedPlayer.value = player
-    rebuyAmount.value = tournamentStore.currentTournament?.buy_in || 0
-    chipAmount.value = tournamentStore.currentTournament?.configuration?.starting_chips || 0
-    showRebuy.value = true
+const props = defineProps({
+  totalPlayers: {
+    type: Number,
+    default: 0
+  },
+  isJAPTTournament: {
+    type: Boolean,
+    default: false
   }
+});
+
+const emit = defineEmits([
+  'rebuyConfirmed',
+  'eliminationConfirmed',
+  'tableRebalanceConfirmed'
+]);
+
+const tournamentStore = useTournamentStore()
   
-  const showEliminationDialog = (player) => {
-    selectedPlayer.value = player
-    finalPosition.value = tournamentStore.getNextEliminationPosition
-    prizeAmount.value = 0
-    hadClayToken.value = false
-    bountyHunter.value = ''
-    showElimination.value = true
-  }
+// État des dialogues
+const showRebuy = ref(false)
+const showElimination = ref(false)
+const showRebalance = ref(false)
   
-  const showRebalanceDialog = () => {
-    showRebalance.value = true
-  }
+// État des formulaires
+const rebuyForm = ref(null)
+const eliminationForm = ref(null)
+const rebuyValid = ref(false)
+const eliminationValid = ref(false)
   
-  // Méthodes de confirmation
-  const confirmRebuy = async () => {
-    if (!rebuyForm.value.validate()) return
+// Données des formulaires
+const selectedPlayer = ref(null)
+const rebuyAmount = ref(null)
+const chipAmount = ref(null)
+const finalPosition = ref(null)
+const prizeAmount = ref(0)
+const hadClayToken = ref(false)
+const bountyHunter = ref('')
   
-    try {
-      await tournamentStore.processRebuy({
-        playerId: selectedPlayer.value.id,
-        amount: rebuyAmount.value,
-        chips: chipAmount.value
-      })
-      showRebuy.value = false
-    } catch (error) {
-      console.error('Erreur lors du rebuy:', error)
-    }
-  }
+// Méthodes pour ouvrir les dialogues
+const showRebuyDialog = (player) => {
+  selectedPlayer.value = player
+  rebuyAmount.value = tournamentStore.currentTournament?.buy_in || 0
+  chipAmount.value = tournamentStore.currentTournament?.configuration?.starting_chips || 0
+  showRebuy.value = true
+}
   
-  const confirmElimination = async () => {
-    if (!eliminationForm.value.validate()) return
+const showEliminationDialog = (player) => {
+  selectedPlayer.value = player
+  finalPosition.value = tournamentStore.getNextEliminationPosition
+  prizeAmount.value = 0
+  hadClayToken.value = false
+  bountyHunter.value = ''
+  showElimination.value = true
+}
   
-    try {
-      await tournamentStore.eliminatePlayer({
-        playerId: selectedPlayer.value.id,
-        position: finalPosition.value,
-        prize: prizeAmount.value,
-        hadClayToken: hadClayToken.value,
-        bountyHunterId: bountyHunter.value ? parseInt(bountyHunter.value) : null
-      })
-      showElimination.value = false
-    } catch (error) {
-      console.error('Erreur lors de l\'élimination:', error)
-    }
-  }
+const showRebalanceDialog = () => {
+  showRebalance.value = true
+}
   
-  const confirmRebalance = async () => {
-    try {
-      await tournamentStore.rebalanceTables()
-      showRebalance.value = false
-    } catch (error) {
-      console.error('Erreur lors du rééquilibrage:', error)
-    }
-  }
+// Méthodes de confirmation
+const confirmRebuy = () => {
+  if (!rebuyForm.value?.validate()) return
   
-  // Expose les méthodes pour le composant parent
-  defineExpose({
-    showRebuyDialog,
-    showEliminationDialog,
-    showRebalanceDialog
-  })
-  </script>
+  emit('rebuyConfirmed', {
+    playerId: selectedPlayer.value.id,
+    playerName: selectedPlayer.value.username,
+    amount: rebuyAmount.value,
+    chips: chipAmount.value
+  });
+  
+  showRebuy.value = false;
+}
+  
+const confirmElimination = () => {
+  if (!eliminationForm.value?.validate()) return
+  
+  emit('eliminationConfirmed', {
+    playerId: selectedPlayer.value.id,
+    playerName: selectedPlayer.value.username,
+    position: finalPosition.value,
+    prize: prizeAmount.value,
+    hadClayToken: hadClayToken.value,
+    bountyHunterId: bountyHunter.value ? parseInt(bountyHunter.value) : null
+  });
+  
+  showElimination.value = false;
+}
+  
+const confirmRebalance = () => {
+  emit('tableRebalanceConfirmed');
+  showRebalance.value = false;
+}
+  
+// Expose les méthodes pour le composant parent
+defineExpose({
+  showRebuyDialog,
+  showEliminationDialog,
+  showRebalanceDialog
+});
+</script>

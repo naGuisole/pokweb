@@ -257,7 +257,7 @@ class ParticipationResponse(ParticipationBase):
     num_rebuys: int
     total_buyin: float
     prize_won: float
-    league_id: int
+    league_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -279,6 +279,7 @@ class TournamentResponse(TournamentBase):
     clay_token_holder_id: Optional[int]
     bounty_hunter_id: Optional[int]
     tables_state: Dict[str, Dict[str, int]]  # Structure des tables
+    participations: List[ParticipationResponse] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -449,7 +450,8 @@ class LeagueCreate(LeagueBase):
 class LeagueResponse(LeagueBase):
     id: int
     members: List[UserResponse]
-    admins: List[int] = []
+    admins: List[int] = Field(default_factory=list)
+
 
     class Config:
         from_attributes = True

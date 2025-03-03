@@ -619,6 +619,7 @@ const showBlindsStructure = ref(false)
 const tableToBreak = ref(null)
 const wsConnected = ref(false)
 const wsEventListeners = ref([])
+const tournamentData = ref(null)
 
 // État du tournoi
 const currentLevel = ref(1)
@@ -636,154 +637,6 @@ const snackbar = ref({
   color: 'success',
   timeout: 3000
 })
-</script>
-
-<style scoped>
-/* Styles généraux */
-.tournament-detail-container {
-  min-height: 100vh;
-  background-color: #f5f8fa;
-}
-
-.header-card {
-  border-bottom: 3px solid var(--v-primary-base);
-}
-
-/* Styles pour le timer */
-.timer-card {
-  background: linear-gradient(135deg, #1a2a6c, #2a4858);
-  color: white;
-  border-radius: 12px;
-}
-
-.timer-display {
-  font-family: 'Roboto Mono', monospace;
-  font-size: 5rem;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
-  margin: 20px 0;
-}
-
-.timer-warning {
-  animation: pulse 1s infinite;
-  color: #ff5252;
-}
-
-@keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.6; }
-  100% { opacity: 1; }
-}
-
-/* Styles pour les tables de poker */
-.poker-table-container {
-  padding: 16px;
-  margin-bottom: 16px;
-  position: relative;
-  aspect-ratio: 1;
-  max-height: 500px;
-}
-
-.poker-table {
-  background: #0f5c2e;
-  border-radius: 50%;
-  border: 15px solid #8B4513;
-  width: 100%;
-  height: 100%;
-  position: relative;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 2px 10px rgba(255, 255, 255, 0.2);
-}
-
-.dealer-button {
-  position: absolute;
-  width: 24px;
-  height: 24px;
-  background: white;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  z-index: 2;
-}
-
-.player-position {
-  position: absolute;
-  width: 60px;
-  height: 60px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 0.2s ease;
-  z-index: 1;
-}
-
-.player-position:hover {
-  transform: scale(1.1);
-}
-
-.player-avatar {
-  background-color: white;
-  border: 2px solid white;
-  margin-bottom: 4px;
-}
-
-.player-name {
-  color: white;
-  font-size: 0.8rem;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
-  background-color: rgba(0, 0, 0, 0.5);
-  padding: 2px 6px;
-  border-radius: 4px;
-  max-width: 100px;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.empty-position {
-  color: rgba(255, 255, 255, 0.5);
-  border: 2px dashed rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-.occupied {
-  background-color: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-  padding: 4px;
-}
-
-/* Positionnement des joueurs autour de la table */
-.position-0 { top: 10%; left: 50%; transform: translate(-50%, 0); }
-.position-1 { top: 20%; left: 80%; transform: translate(-50%, 0); }
-.position-2 { top: 50%; left: 90%; transform: translate(-50%, -50%); }
-.position-3 { top: 80%; left: 80%; transform: translate(-50%, -50%); }
-.position-4 { top: 90%; left: 50%; transform: translate(-50%, -50%); }
-.position-5 { top: 80%; left: 20%; transform: translate(-50%, -50%); }
-.position-6 { top: 50%; left: 10%; transform: translate(-50%, -50%); }
-.position-7 { top: 20%; left: 20%; transform: translate(-50%, 0); }
-.position-8 { top: 15%; left: 35%; transform: translate(-50%, 0); }
-.position-9 { top: 15%; left: 65%; transform: translate(-50%, 0); }
-
-/* Styles pour les tableaux */
-.blinds-table {
-  border-radius: 8px;
-  overflow: hidden;
-}
-</style>
 
 // Propriétés calculées
 const tournament = computed(() => tournamentStore.currentTournament || null)
@@ -1606,3 +1459,151 @@ watch(() => route.params.id, async (newId) => {
     }
   }
 })
+</script>
+
+<style scoped>
+/* Styles généraux */
+.tournament-detail-container {
+  min-height: 100vh;
+  background-color: #f5f8fa;
+}
+
+.header-card {
+  border-bottom: 3px solid var(--v-primary-base);
+}
+
+/* Styles pour le timer */
+.timer-card {
+  background: linear-gradient(135deg, #1a2a6c, #2a4858);
+  color: white;
+  border-radius: 12px;
+}
+
+.timer-display {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 5rem;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  margin: 20px 0;
+}
+
+.timer-warning {
+  animation: pulse 1s infinite;
+  color: #ff5252;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+
+/* Styles pour les tables de poker */
+.poker-table-container {
+  padding: 16px;
+  margin-bottom: 16px;
+  position: relative;
+  aspect-ratio: 1;
+  max-height: 500px;
+}
+
+.poker-table {
+  background: #0f5c2e;
+  border-radius: 50%;
+  border: 15px solid #8B4513;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 2px 10px rgba(255, 255, 255, 0.2);
+}
+
+.dealer-button {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  z-index: 2;
+}
+
+.player-position {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  z-index: 1;
+}
+
+.player-position:hover {
+  transform: scale(1.1);
+}
+
+.player-avatar {
+  background-color: white;
+  border: 2px solid white;
+  margin-bottom: 4px;
+}
+
+.player-name {
+  color: white;
+  font-size: 0.8rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  background-color: rgba(0, 0, 0, 0.5);
+  padding: 2px 6px;
+  border-radius: 4px;
+  max-width: 100px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.empty-position {
+  color: rgba(255, 255, 255, 0.5);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.occupied {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  padding: 4px;
+}
+
+/* Positionnement des joueurs autour de la table */
+.position-0 { top: 10%; left: 50%; transform: translate(-50%, 0); }
+.position-1 { top: 20%; left: 80%; transform: translate(-50%, 0); }
+.position-2 { top: 50%; left: 90%; transform: translate(-50%, -50%); }
+.position-3 { top: 80%; left: 80%; transform: translate(-50%, -50%); }
+.position-4 { top: 90%; left: 50%; transform: translate(-50%, -50%); }
+.position-5 { top: 80%; left: 20%; transform: translate(-50%, -50%); }
+.position-6 { top: 50%; left: 10%; transform: translate(-50%, -50%); }
+.position-7 { top: 20%; left: 20%; transform: translate(-50%, 0); }
+.position-8 { top: 15%; left: 35%; transform: translate(-50%, 0); }
+.position-9 { top: 15%; left: 65%; transform: translate(-50%, 0); }
+
+/* Styles pour les tableaux */
+.blinds-table {
+  border-radius: 8px;
+  overflow: hidden;
+}
+</style>
