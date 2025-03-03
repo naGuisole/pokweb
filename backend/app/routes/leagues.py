@@ -30,18 +30,35 @@ async def create_league(
 
 @router.get("/", response_model=List[LeagueResponse])
 async def get_leagues(
-        db: Session = Depends(get_db)
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
 ):
-    """Liste toutes les ligues avec leur membres"""
+    """Liste toutes les ligues avec leur membres et administrateurs"""
     # Récupération de toutes les ligues
     leagues = db.query(League).all()
 
-    # Préparation de la réponse
+    # Pour chaque ligue, récupérer les membres et les administrateurs
     league_responses = []
     for league in leagues:
-        league_loaded = league_crud.get_league_with_members(db, league.id)
+        # Récupérer la ligue avec ses membres
+        league_data = league_crud.get_league_with_members(db, league.id)
 
-        league_responses.append(league_loaded)
+        # Récupérer les IDs des administrateurs séparément
+        admin_records = db.query(LeagueAdmin).filter(LeagueAdmin.league_id == league.id).all()
+        admin_ids = [admin.user_id for admin in admin_records]
+
+        # Créer un objet de réponse compatible avec LeagueResponse
+        # au lieu de modifier directement l'objet SQLAlchemy
+        league_dict = {
+            "id": league_data.id,
+            "name": league_data.name,
+            "description": league_data.description,
+            "members": league_data.members,
+            "admins": admin_ids  # Ajouter les admins ici
+        }
+
+        league_responses.append(league_dict)
+
     return league_responses
 
 
@@ -50,19 +67,26 @@ async def get_league(
         league_id: int,
         db: Session = Depends(get_db)
 ):
+    """Récupère une ligue spécifique avec ses membres et administrateurs"""
+    # Récupérer la ligue avec ses membres
     league = league_crud.get_league_with_members(db, league_id)
     if not league:
         raise HTTPException(status_code=404, detail="Ligue non trouvée")
-    return league
 
+    # Récupérer les IDs des administrateurs séparément
+    admin_records = db.query(LeagueAdmin).filter(LeagueAdmin.league_id == league_id).all()
+    admin_ids = [admin.user_id for admin in admin_records]
 
-@router.get("/{league_id}/members", response_model=List[UserResponse])
-async def get_league_members(
-        league_id: int,
-        db: Session = Depends(get_db)
-):
-    """Liste les membres d'une ligue"""
-    return db.query(User).filter(User.league_id == league_id).all()
+    # Créer un dictionnaire de réponse
+    league_dict = {
+        "id": league.id,
+        "name": league.name,
+        "description": league.description,
+        "members": league.members,
+        "admins": admin_ids
+    }
+
+    return league_dict
 
 
 @router.post("/{league_id}/join")

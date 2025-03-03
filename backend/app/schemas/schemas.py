@@ -449,6 +449,7 @@ class LeagueCreate(LeagueBase):
 class LeagueResponse(LeagueBase):
     id: int
     members: List[UserResponse]
+    admins: List[int] = []
 
     class Config:
         from_attributes = True

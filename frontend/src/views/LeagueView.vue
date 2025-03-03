@@ -27,23 +27,47 @@
       </v-col>
     </v-row>
 
+    <!-- Affichage de la ligue de l'utilisateur actuel -->
+    <!-- <v-card v-if="getUserLeague" class="mb-4">
+      <v-card-title class="bg-primary text-white">
+        Ma ligue: {{ getUserLeague.name }}
+      </v-card-title>
+      <v-card-text>
+        <div class="d-flex align-center">
+          <div>
+            <div class="text-body-1">{{ getUserLeague.description }}</div>
+            <div class="mt-2">
+              <v-chip color="error" v-if="isLeagueAdminRobust(getUserLeague.id)">Administrateur</v-chip>
+              <v-chip color="primary" v-else>Membre</v-chip>
+            </div>
+          </div>
+        </div>
+      </v-card-text>
+    </v-card> -->
+
     <!-- Liste des ligues -->
     <v-row>
       <v-col cols="12">
         <v-expansion-panels v-model="expandedPanels" multiple>
           <!-- Ligues dont l'utilisateur est membre en premier -->
           <template v-for="(league, index) in sortedLeagues" :key="league.id">
-            <v-expansion-panel>
+            <v-expansion-panel
+              :elevation="isUserLeague(league) ? 4 : 1"
+              :class="{'user-league': isUserLeague(league)}"
+            >
               <v-expansion-panel-title>
                 <div class="d-flex align-center w-100">
                   <div>
+                    <div v-if="isUserLeague(league)" class="league-badge mb-1">
+                      <v-chip color="primary" size="small">Votre ligue</v-chip>
+                    </div>
                     <div class="text-h6">{{ league.name }}</div>
                     <div class="text-subtitle-2">{{ league.description }}</div>
                   </div>
                   <v-spacer></v-spacer>
                   <div class="d-flex align-center">
                     <v-chip
-                      v-if="isAdminOf(league.id)"
+                      v-if="isLeagueAdminRobust(league.id)"
                       color="error"
                       class="mr-2"
                     >
@@ -80,15 +104,15 @@
                   </div>
                 </div>
               </v-expansion-panel-title>
-              
+
               <v-expansion-panel-text>
                 <!-- Onglets pour les admins: Membres / Membres en attente -->
-                <v-tabs v-if="isAdminOf(league.id)" v-model="activeTab">
+                <v-tabs v-if="isLeagueAdminRobust(league.id)" v-model="activeTab">
                   <v-tab value="members">Membres</v-tab>
                   <v-tab value="pending">En attente ({{ getPendingMembers(league).length }})</v-tab>
                 </v-tabs>
-                
-                <v-window v-if="isAdminOf(league.id)" v-model="activeTab">
+
+                <v-window v-if="isLeagueAdminRobust(league.id)" v-model="activeTab">
                   <!-- Membres actifs -->
                   <v-window-item value="members">
                     <v-data-table
@@ -104,7 +128,7 @@
                           {{ item.isAdmin ? 'Admin' : 'Membre' }}
                         </v-chip>
                         <v-btn
-                          v-if="isAdminOf(league.id) && !item.isAdmin && item.id !== currentUser.id"
+                          v-if="isLeagueAdminRobust(league.id) && !item.isAdmin && item.id !== currentUser.id"
                           icon="mdi-shield-crown"
                           variant="text"
                           size="small"
@@ -116,7 +140,7 @@
                       </template>
                     </v-data-table>
                   </v-window-item>
-                  
+
                   <!-- Membres en attente -->
                   <v-window-item value="pending">
                     <v-data-table
@@ -148,7 +172,7 @@
                     </v-data-table>
                   </v-window-item>
                 </v-window>
-                
+
                 <!-- Vue simple pour les membres non-admin -->
                 <div v-else>
                   <v-data-table
@@ -336,21 +360,27 @@ const descriptionRules = [
 const leagues = computed(() => leagueStore.getAvailableLeagues || [])
 const currentUser = computed(() => authStore.user)
 
+// Computed pour récupérer facilement la ligue de l'utilisateur
+const getUserLeague = computed(() => {
+  if (!currentUser.value?.league_id) return null;
+  return leagues.value.find(l => l.id === currentUser.value.league_id) || null;
+});
+
 // Trier les ligues pour placer celle de l'utilisateur en haut
 const sortedLeagues = computed(() => {
   if (!leagues.value || leagues.value.length === 0) {
     return [];
   }
-  
+
   return [...leagues.value].sort((a, b) => {
     // Si l'utilisateur est membre d'une ligue, elle va en haut
     if (isMemberOf(a.id) && !isMemberOf(b.id)) return -1;
     if (!isMemberOf(a.id) && isMemberOf(b.id)) return 1;
-    
+
     // Si l'utilisateur est admin d'une ligue, elle va en haut
-    if (isAdminOf(a.id) && !isAdminOf(b.id)) return -1;
-    if (!isAdminOf(a.id) && isAdminOf(b.id)) return 1;
-    
+    if (isLeagueAdminRobust(a.id) && !isLeagueAdminRobust(b.id)) return -1;
+    if (!isLeagueAdminRobust(a.id) && isLeagueAdminRobust(b.id)) return 1;
+
     // Par défaut, tri par nom
     return a.name.localeCompare(b.name);
   });
@@ -359,36 +389,65 @@ const sortedLeagues = computed(() => {
 // Ligues disponibles pour rejoindre (celles dont l'utilisateur n'est pas membre)
 const availableLeaguesToJoin = computed(() => {
   if (!currentUser.value || !leagues.value) return []
-  return leagues.value.filter(league => 
+  return leagues.value.filter(league =>
     !isMemberOf(league.id) && !isPendingMember(league.id)
   )
 })
 
-// Méthodes
+// Méthodes améliorées pour vérifier le statut de l'utilisateur
 const isMemberOf = (leagueId) => {
-  return currentUser.value?.league_id === leagueId && 
-         !isPendingMember(leagueId)
+  // Vérifie directement si l'ID de la ligue de l'utilisateur correspond
+  return currentUser.value?.league_id === leagueId &&
+         currentUser.value?.member_status === 'APPROVED';
 }
 
+// Méthode pour vérifier si l'utilisateur est admin (ancienne méthode, gardée pour compatibilité)
 const isAdminOf = (leagueId) => {
   const league = leagues.value.find(l => l.id === leagueId)
   return league?.admins?.includes(currentUser.value?.id) || false
 }
 
+// Méthode alternative qui vérifie directement avec le store des ligues
+const isLeagueAdmin = (leagueId) => {
+  // Vérifier si l'utilisateur est dans la liste des administrateurs de la ligue
+  const league = leagueStore.leagues.find(l => l.id === leagueId);
+  const adminIds = league?.admins?.map(admin => admin.id) || [];
+  return adminIds.includes(currentUser.value?.id);
+}
+
+// Une méthode plus robuste qui combine les approches
+const isLeagueAdminRobust = (leagueId) => {
+  // Vérifie si l'utilisateur est membre de cette ligue
+  if (currentUser.value?.league_id !== leagueId) return false;
+
+  // Vérifie si le flag is_league_admin existe
+  if (currentUser.value?.is_league_admin === true) return true;
+
+  // Vérifie si le flag administered_league existe et correspond
+  if (currentUser.value?.administered_league &&
+      currentUser.value.administered_league.id === leagueId) {
+    return true;
+  }
+
+  // Vérifie par ID dans le tableau admins de la ligue
+  return isAdminByUserId(leagueId);
+};
+
+// Méthode pour vérifier si l'utilisateur est en attente d'approbation
 const isPendingMember = (leagueId) => {
-  // Cette fonction vérifie si l'utilisateur est en attente d'approbation
-  // Supposons que le statut soit stocké dans une propriété status
-  const league = leagues.value.find(l => l.id === leagueId)
-  if (!league || !currentUser.value) return false
-  
-  const userMembership = league.members?.find(m => m.id === currentUser.value.id)
-  return userMembership?.status === 'PENDING'
+  return currentUser.value?.league_id === leagueId &&
+         currentUser.value?.member_status === 'PENDING';
+}
+
+// Utiliser cette méthode pour afficher visuellement la ligue actuelle de l'utilisateur
+const isUserLeague = (league) => {
+  return currentUser.value?.league_id === league.id;
 }
 
 // Filtrer les membres approuvés
 const getApprovedMembers = (league) => {
   if (!league.members) return []
-  
+
   return league.members
     .filter(m => m.status !== 'PENDING')
     .map(member => ({
@@ -406,23 +465,61 @@ const getPendingMembers = (league) => {
 const loadLeagues = async () => {
   loading.value = true
   try {
-    await leagueStore.fetchLeagues()
-    
+    await leagueStore.fetchLeagues();
+
+    // Logs détaillés pour le débogage
+    console.log('Current User (detailed):', JSON.stringify(currentUser.value, null, 2));
+    console.log('User league_id:', currentUser.value?.league_id);
+
+    leagues.value.forEach((league, index) => {
+      console.log(`League ${index} (id=${league.id}, name=${league.name}):`);
+      console.log('Admins property:', league.admins);
+      if (Array.isArray(league.admins)) {
+        console.log('Admins is array of length:', league.admins.length);
+        if (league.admins.length > 0) {
+          console.log('First admin item type:', typeof league.admins[0]);
+          console.log('First admin item:', league.admins[0]);
+        }
+      } else {
+        console.log('Admins is not an array, type:', typeof league.admins);
+      }
+
+      // Vérifier si l'utilisateur actuel est admin de cette ligue
+      const isAdmin = isLeagueAdminRobust(league.id);
+      console.log(`Current user is admin of league ${league.id}:`, isAdmin);
+    });
+
     // Déterminer les panels à ouvrir par défaut
     if (currentUser.value?.league_id) {
       const userLeagueIndex = sortedLeagues.value.findIndex(
         l => l.id === currentUser.value.league_id
-      )
+      );
       if (userLeagueIndex >= 0) {
-        expandedPanels.value = [userLeagueIndex]
+        expandedPanels.value = [userLeagueIndex];
       }
     }
   } catch (error) {
-    showError('Erreur lors du chargement des ligues')
+    console.error('Erreur lors du chargement des ligues:', error);
+    showError('Erreur lors du chargement des ligues');
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
+
+// Vérification spécifique par ID uniquement
+const isAdminByUserId = (leagueId) => {
+  const league = leagues.value.find(l => l.id === leagueId);
+
+  if (!league || !league.admins || !Array.isArray(league.admins)) return false;
+
+  // Si les administrateurs sont des objets avec un ID
+  if (league.admins.length > 0 && typeof league.admins[0] === 'object') {
+    return league.admins.some(admin => admin.id === currentUser.value?.id);
+  }
+
+  // Si les administrateurs sont directement des IDs
+  return league.admins.includes(currentUser.value?.id);
+};
 
 const createLeague = async () => {
   if (!form.value.validate()) return
@@ -434,10 +531,10 @@ const createLeague = async () => {
     console.log('Token:', localStorage.getItem('token'));
 
     await leagueStore.createLeague(newLeague.value)
-    
+
     // Rafraîchir le profil utilisateur pour mettre à jour son league_id
     await authStore.fetchUserProfile()
-    
+
     showSuccess('Ligue créée avec succès')
     showCreateLeague.value = false
     newLeague.value = { name: '', description: '' }
@@ -451,14 +548,14 @@ const createLeague = async () => {
 
 const joinLeague = async () => {
   if (!selectedLeagueToJoin.value) return
-  
+
   saving.value = true
   try {
     await leagueStore.joinLeague(selectedLeagueToJoin.value)
     showSuccess('Demande d\'adhésion envoyée avec succès')
     showJoinLeague.value = false
     selectedLeagueToJoin.value = null
-    
+
     // Rafraîchir les données
     await loadLeagues()
     await authStore.fetchUserProfile()
@@ -474,7 +571,7 @@ const joinSpecificLeague = async (leagueId) => {
   try {
     await leagueStore.joinLeague(leagueId)
     showSuccess('Demande d\'adhésion envoyée avec succès')
-    
+
     // Rafraîchir les données
     await loadLeagues()
     await authStore.fetchUserProfile()
@@ -541,5 +638,16 @@ onMounted(() => {
 <style scoped>
 .v-expansion-panel-title {
   padding: 16px;
+}
+
+.user-league {
+  border-left: 4px solid var(--v-primary-base);
+  background-color: rgba(var(--v-theme-primary), 0.05);
+}
+
+.league-badge {
+  position: absolute;
+  top: -8px;
+  left: 16px;
 }
 </style>

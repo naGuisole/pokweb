@@ -7,14 +7,50 @@ from pydantic import EmailStr
 from pathlib import Path
 
 from ..config import settings
-from ..models.models import User, League
+from ..models.models import User, League, LeagueAdmin
 from ..schemas.schemas import UserCreate, UserUpdateProfile
 
+
 def get_user_with_league(db: Session, user_id: int):
+    """Récupère un utilisateur avec sa ligue et son statut d'administrateur"""
     # Une seule requête qui charge l'utilisateur ET sa ligue
     user = db.query(User).options(
         joinedload(User.league)
     ).filter(User.id == user_id).first()
+
+    if not user:
+        return None
+
+    # Ne pas modifier directement l'objet SQLAlchemy
+    # Créer plutôt un dictionnaire de réponse
+    user_dict = {
+        "id": user.id,
+        "email": user.email,
+        "username": user.username,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "address": user.address,
+        "profile_image_path": user.profile_image_path,
+        "created_at": user.created_at,
+        "last_login": user.last_login,
+        "league_id": user.league_id,
+        "league": user.league,
+        "member_status": user.member_status
+    }
+
+    # Vérifier si l'utilisateur est admin de sa ligue
+    is_admin = False
+    if user.league_id:
+        admin_record = db.query(LeagueAdmin).filter(
+            LeagueAdmin.league_id == user.league_id,
+            LeagueAdmin.user_id == user.id
+        ).first()
+        is_admin = admin_record is not None
+
+    # Ajouter le statut d'admin au dictionnaire
+    user_dict["is_league_admin"] = is_admin
+
+    # Créer un nouvel objet User avec les attributs mis à jour
     return user
 
 
