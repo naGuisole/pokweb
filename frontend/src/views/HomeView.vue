@@ -82,7 +82,7 @@
                     </div>
                     <div class="text-body-1">
                       <v-icon start>mdi-account-group</v-icon>
-                      {{ nextTournament.registered_players }} / {{ nextTournament.max_players }} joueurs
+                      {{ nextTournament.participations }} / {{ nextTournament.max_players }} joueurs
                     </div>
                     <div class="text-body-1">
                       <v-icon start>mdi-poker-chip</v-icon>
@@ -155,7 +155,7 @@
                   </div>
                   <div class="text-body-1">
                     <v-icon start>mdi-account-group</v-icon>
-                    {{ (lastTournament.registered_players?.length || 0) }} joueurs
+                    {{ (lastTournament.participations?.length || 0) }} joueurs
                   </div>
                   <div v-if="lastTournament.winner" class="text-body-1">
                     <v-icon start>mdi-trophy</v-icon>

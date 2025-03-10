@@ -27,7 +27,7 @@
           <v-col cols="6">
             <div class="text-caption">Participants</div>
             <div class="text-body-2">
-              {{ tournament.registered_players?.length || 0 }} / {{ tournament.max_players }}
+              {{ tournament.participations?.length || 0 }} / {{ tournament.max_players }}
             </div>
           </v-col>
           <v-col cols="6">
@@ -178,7 +178,7 @@
   })
   
   const isRegistered = computed(() => {
-    return props.tournament.registered_players?.some(
+    return props.tournament.participations?.some(
       player => player.id === authStore.user?.id
     )
   })

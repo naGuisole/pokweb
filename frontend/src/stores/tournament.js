@@ -94,42 +94,42 @@ export const useTournamentStore = defineStore('tournament', {
       const tournament = Array.isArray(state.tournaments) ? 
         state.tournaments.find(t => t.id === tournamentId) : null
       
-      if (!tournament || !Array.isArray(tournament.registered_players)) return false
+      if (!tournament || !Array.isArray(tournament.participations)) return false
       
-      return tournament.registered_players.some(player => player.id === userId)
+      return tournament.participations.some(player => player.id === userId)
     },
 
-    // Joueurs actifs du tournoi en cours
+    // Active players in the current tournament
     getActivePlayers: (state) => {
-      if (!state.currentTournament || !state.currentTournament.players) {
+      if (!state.currentTournament || !state.currentTournament.participations) {
         return []
       }
-      return state.currentTournament.players.filter(p => !p.is_eliminated)
+      return state.currentTournament.participations.filter(p => p.is_active)
     },
     
-    // Joueurs éliminés du tournoi en cours
+    // Eliminated players in the current tournament
     getEliminatedPlayers: (state) => {
-      if (!state.currentTournament || !state.currentTournament.players) {
+      if (!state.currentTournament || !state.currentTournament.participations) {
         return []
       }
-      return state.currentTournament.players.filter(p => p.is_eliminated)
-        .sort((a, b) => (a.final_position || 999) - (b.final_position || 999))
+      return state.currentTournament.participations.filter(p => !p.is_active)
+        .sort((a, b) => (a.current_position || 999) - (b.current_position || 999))
     },
     
     // Nombre total de joueurs dans le tournoi en cours
     getCurrentTournamentPlayersCount: (state) => {
-      if (!state.currentTournament || !state.currentTournament.players) {
+      if (!state.currentTournament || !state.currentTournament.participations) {
         return 0
       }
-      return state.currentTournament.players.length
+      return state.currentTournament.participations.length
     },
     
     // Position pour la prochaine élimination
     getNextEliminationPosition: (state) => {
-      if (!state.currentTournament || !state.currentTournament.players) {
+      if (!state.currentTournament || !state.currentTournament.participations) {
         return 1
       }
-      const eliminatedPlayers = state.currentTournament.players.filter(p => p.is_eliminated)
+      const eliminatedPlayers = state.currentTournament.participations.filter(p => p.is_eliminated)
       return eliminatedPlayers.length + 1
     },
 

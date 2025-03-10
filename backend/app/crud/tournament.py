@@ -47,9 +47,12 @@ def create_tournament(db: Session, tournament: TournamentCreate, admin_id: int) 
 
 def get_tournament(db: Session, tournament_id: int) -> Optional[Tournament]:
     """
-    Récupère un tournoi par son ID
+    Récupère un tournoi par son ID avec ses participations
     """
-    return db.query(Tournament).filter(Tournament.id == tournament_id).first()
+    return db.query(Tournament).options(
+        joinedload(Tournament.participations).joinedload(TournamentParticipation.user)
+    ).filter(Tournament.id == tournament_id).first()
+
 
 
 def list_tournaments(
@@ -63,7 +66,7 @@ def list_tournaments(
     Liste les tournois avec filtres optionnels
     """
     query = db.query(Tournament).options(
-        joinedload(Tournament.participations)
+        joinedload(Tournament.participations).joinedload(TournamentParticipation.user)
     ).order_by(desc(Tournament.date))
 
     if status:

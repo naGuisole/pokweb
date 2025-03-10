@@ -258,6 +258,8 @@ class ParticipationResponse(ParticipationBase):
     total_buyin: float
     prize_won: float
     league_id: Optional[int] = None
+    user: UserSimple
+
 
     class Config:
         from_attributes = True

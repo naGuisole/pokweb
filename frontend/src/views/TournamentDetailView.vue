@@ -1380,6 +1380,13 @@ onMounted(async () => {
       showError('Tournoi non trouvé')
       return
     }
+
+    // Débogage des participants
+    console.log('Données du tournoi:', tournamentData.value)
+    console.log('Joueurs actifs:', activePlayers.value)
+    console.log('Joueurs éliminés:', eliminatedPlayers.value)
+    console.log('Liste complète des joueurs:', sortedPlayers.value)
+    console.log('Utilisateur actuel:', authStore.user)
     
     // Set default active tab based on tournament status
     if (tournamentData.value.status === 'PLANNED') {
