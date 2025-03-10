@@ -96,13 +96,18 @@
                     <div class="d-flex align-center">
                       <v-avatar size="32" class="mr-2">
                         <v-img
-                          v-if="item.raw.profile_image_path"
-                          :src="item.raw.profile_image_path"
+                          v-if="item.raw && item.raw.user && item.raw.user.profile_image_path"
+                          :src="item.raw.user.profile_image_path"
                           alt="Avatar"
                         ></v-img>
                         <v-icon v-else size="small">mdi-account</v-icon>
                       </v-avatar>
-                      <span>{{ item.raw.username }}</span>
+                      <span>{{ item.raw && item.raw.user ? item.raw.user.username : 'Unknown' }}</span>
+                      
+                      <!-- Add null checks to all badge conditions -->
+                      <v-tooltip v-if="item.raw && isWinner(item.raw)" location="bottom">
+                        <!-- tooltip content -->
+                      </v-tooltip>
                       
                       <!-- Badge de victoire -->
                       <v-tooltip v-if="isWinner(item.raw)" location="bottom">
@@ -646,7 +651,7 @@ const isAdmin = computed(() => {
 })
 
 const activePlayers = computed(() => {
-  return tournamentStore.getActivePlayers?.filter(p => p.is_active) || []
+  return tournamentStore.getActivePlayers?.filter(p => p && p.is_active) || []
 })
 
 const eliminatedPlayers = computed(() => {
@@ -654,8 +659,11 @@ const eliminatedPlayers = computed(() => {
 })
 
 const sortedPlayers = computed(() => {
-  // Combinaison des joueurs actifs et éliminés
-  const allPlayers = [...activePlayers.value, ...eliminatedPlayers.value]
+  // Safely combine players with null checks
+  const allPlayers = [
+    ...(activePlayers.value || []), 
+    ...(eliminatedPlayers.value || [])
+  ].filter(p => p) // Filter out any null/undefined values
   
   if (!tournament.value) return allPlayers
   
@@ -851,19 +859,19 @@ const getStatusLabel = (status) => {
 
 // Fonctions pour les badges des joueurs
 const isWinner = (player) => {
-  if (!tournament.value || tournament.value.status !== 'COMPLETED') return false
+  if (!player || !tournament.value) return false
   
-  // Pour les tournois JAPT, le vainqueur est le détenteur du jeton d'argile
+  // For the tournaments JAPT, the winner is the holder of the clay token
   if (tournament.value.tournament_type === 'JAPT') {
-    return player.id === tournament.value.clay_token_holder_id
+    return player.user && player.user.id === tournament.value.clay_token_holder_id
   }
   
-  // Pour les autres tournois, le vainqueur est celui en position 1
+  // For other tournaments, the winner is in position 1
   return player.current_position === 1 && !player.is_active
 }
 
 const isBubbleBoy = (player) => {
-  if (!tournament.value || tournament.value.status !== 'COMPLETED') return false
+  if (!player || !tournament.value || tournament.value.status !== 'COMPLETED') return false
   
   // Trouver la structure qui correspond au nombre de joueurs
   const totalPlayers = activePlayers.value.length + eliminatedPlayers.value.length
@@ -881,8 +889,9 @@ const isBubbleBoy = (player) => {
 }
 
 const isBountyHunter = (player) => {
-  if (tournament.value?.tournament_type !== 'JAPT') return false
-  return player.id === tournament.value.bounty_hunter_id
+  if (!player || !tournament.value) return false
+  if (tournament.value.tournament_type !== 'JAPT') return false
+  return player.user && player.user.id === tournament.value.bounty_hunter_id
 }
 
 const hadClayToken = (player) => {
@@ -1381,13 +1390,6 @@ onMounted(async () => {
       return
     }
 
-    // Débogage des participants
-    console.log('Données du tournoi:', tournamentData.value)
-    console.log('Joueurs actifs:', activePlayers.value)
-    console.log('Joueurs éliminés:', eliminatedPlayers.value)
-    console.log('Liste complète des joueurs:', sortedPlayers.value)
-    console.log('Utilisateur actuel:', authStore.user)
-    
     // Set default active tab based on tournament status
     if (tournamentData.value.status === 'PLANNED') {
       activeTab.value = 'players'
@@ -1395,7 +1397,7 @@ onMounted(async () => {
       activeTab.value = 'progress'
     }
     
-    // Initialize timer state
+    // Initialize timer state with null checks
     if (tournamentData.value.status === 'IN_PROGRESS') {
       currentLevel.value = tournamentData.value.current_level || 1
       timeRemaining.value = tournamentData.value.seconds_remaining || 0
