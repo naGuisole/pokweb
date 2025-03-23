@@ -106,25 +106,20 @@
                       
                       <!-- Add null checks to all badge conditions -->
                       <v-tooltip v-if="item.raw && isWinner(item.raw)" location="bottom">
-                        <!-- tooltip content -->
-                      </v-tooltip>
-                      
-                      <!-- Badge de victoire -->
-                      <v-tooltip v-if="isWinner(item.raw)" location="bottom">
                         <template v-slot:activator="{ props }">
                           <v-icon 
                             v-bind="props"
                             color="amber" 
                             class="ml-2"
                           >
-                            {{ tournament.tournament_type === 'JAPT' ? 'mdi-poker-chip' : 'mdi-trophy' }}
+                            {{ tournament.value.tournament_type === 'JAPT' ? 'mdi-poker-chip' : 'mdi-trophy' }}
                           </v-icon>
                         </template>
-                        <span>{{ tournament.tournament_type === 'JAPT' ? 'Détenteur du Jeton d\'Argile' : 'Vainqueur' }}</span>
+                        <span>{{ tournament.value.tournament_type === 'JAPT' ? 'Détenteur du Jeton d\'Argile' : 'Vainqueur' }}</span>
                       </v-tooltip>
                       
                       <!-- Badge bubble -->
-                      <v-tooltip v-if="isBubbleBoy(item.raw)" location="bottom">
+                      <v-tooltip v-if="item.raw && isBubbleBoy(item.raw)" location="bottom">
                         <template v-slot:activator="{ props }">
                           <v-icon 
                             v-bind="props" 
@@ -138,9 +133,9 @@
                       </v-tooltip>
                       
                       <!-- Badges spécifiques JAPT -->
-                      <template v-if="tournament.tournament_type === 'JAPT'">
+                      <template v-if="tournament.value && tournament.value.tournament_type === 'JAPT'">
                         <!-- Badge Bounty Hunter -->
-                        <v-tooltip v-if="isBountyHunter(item.raw)" location="bottom">
+                        <v-tooltip v-if="item.raw && isBountyHunter(item.raw)" location="bottom">
                           <template v-slot:activator="{ props }">
                             <v-icon 
                               v-bind="props"
@@ -154,7 +149,7 @@
                         </v-tooltip>
                         
                         <!-- Badge Jeton d'Argile brisé -->
-                        <v-tooltip v-if="hadClayToken(item.raw) && !isWinner(item.raw)" location="bottom">
+                        <v-tooltip v-if="item.raw && hadClayToken(item.raw) && !isWinner(item.raw)" location="bottom">
                           <template v-slot:activator="{ props }">
                             <v-icon 
                               v-bind="props" 
@@ -168,7 +163,7 @@
                         </v-tooltip>
                         
                         <!-- Badge double victoire -->
-                        <v-tooltip v-if="hasDoubleWin(item.raw)" location="bottom">
+                        <v-tooltip v-if="item.raw && hasDoubleWin(item.raw)" location="bottom">
                           <template v-slot:activator="{ props }">
                             <v-icon 
                               v-bind="props"
@@ -182,7 +177,7 @@
                         </v-tooltip>
                         
                         <!-- Badge double victoire perdue -->
-                        <v-tooltip v-if="hadDoubleWin(item.raw) && !isWinner(item.raw)" location="bottom">
+                        <v-tooltip v-if="item.raw && hadDoubleWin(item.raw) && !isWinner(item.raw)" location="bottom">
                           <template v-slot:activator="{ props }">
                             <v-icon 
                               v-bind="props"
@@ -196,7 +191,7 @@
                         </v-tooltip>
                         
                         <!-- Badge triplé -->
-                        <v-tooltip v-if="hasTripleWin(item.raw)" location="bottom">
+                        <v-tooltip v-if="item.raw && hasTripleWin(item.raw)" location="bottom">
                           <template v-slot:activator="{ props }">
                             <v-icon 
                               v-bind="props"
@@ -209,6 +204,8 @@
                           <span>Triplé !</span>
                         </v-tooltip>
                       </template>
+                    </div>
+                  </template>
                     </div>
                   </template>
                   
@@ -659,23 +656,28 @@ const sortedPlayers = computed(() => {
     ...(eliminatedPlayers.value || [])
   ].filter(p => p) // Filter out any null/undefined values
   
-  if (!tournament.value) return allPlayers
+  if (!tournament.value) return []
+  
+  let sortedPlayers = allPlayers;
   
   if (tournament.value.status === 'PLANNED') {
     // Tri par heure d'inscription pour les tournois planifiés
-    return allPlayers.sort((a, b) => 
+    sortedPlayers = allPlayers.sort((a, b) => 
       new Date(a.registration_time) - new Date(b.registration_time)
     )
   } else {
     // Tri par position pour les tournois en cours ou terminés
     // Joueurs actifs d'abord (pas encore de position), puis par position pour les éliminés
-    return allPlayers.sort((a, b) => {
+    sortedPlayers = allPlayers.sort((a, b) => {
       if (a.is_active && !b.is_active) return -1
       if (!a.is_active && b.is_active) return 1
       if (a.is_active && b.is_active) return 0
       return (a.current_position || 999) - (b.current_position || 999)
     })
   }
+  
+  // Mapper les participations pour le format du tableau
+  return mapParticipationsToTableRows(sortedPlayers);
 })
 
 const tables = computed(() => {
@@ -851,6 +853,26 @@ const getStatusLabel = (status) => {
   return labels[status] || status
 }
 
+// Fonction pour trouver le gagnant du tournoi parmi les participations
+const getWinner = (tournamentObj) => {
+  if (!tournamentObj || !tournamentObj.participations) return null;
+  
+  // Pour les tournois JAPT, le gagnant est le détenteur du jeton d'argile
+  if (tournamentObj.tournament_type === 'JAPT' && tournamentObj.clay_token_holder_id) {
+    const winner = tournamentObj.participations.find(p => 
+      p.user && p.user.id === tournamentObj.clay_token_holder_id
+    );
+    if (winner) return winner.user;
+  }
+  
+  // Pour les autres types de tournois, le gagnant est celui en position 1
+  const winner = tournamentObj.participations.find(p => 
+    !p.is_active && p.current_position === 1
+  );
+  
+  return winner ? winner.user : null;
+}
+
 // Fonctions pour les badges des joueurs
 const isWinner = (player) => {
   if (!player || !tournament.value) return false
@@ -914,21 +936,68 @@ const hasTripleWin = (player) => {
   return false
 }
 
+// Fonction pour mapper les participations en format tableau
+const mapParticipationsToTableRows = (participations) => {
+  if (!participations) return [];
+  
+  return participations.map(p => {
+    // Générer l'objet compatible avec v-data-table
+    return {
+      player: p.user ? p.user.username : 'Unknown',
+      registration_time: p.registration_time,
+      total_buyin: p.total_buyin,
+      num_rebuys: p.num_rebuys,
+      final_position: p.is_active ? 'En jeu' : (p.current_position || '-'),
+      prize_won: p.prize_won,
+      // Conserver l'objet original pour les fonctions de row-click
+      raw: p
+    };
+  });
+}
+
 // Gestion des tables
 const getPlayersAtTable = (tableIndex) => {
-  if (!activePlayers.value) return []
-  return activePlayers.value.filter(player => player.table === tableIndex)
+  // Pour la phase "PLANNED", tous les joueurs sont considérés à la table 0
+  if (tournament.value?.status === 'PLANNED') {
+    return tableIndex === 0 ? activePlayers.value : [];
+  }
+  
+  // Pour les tournois en cours, utiliser la propriété tables_state
+  if (!tournament.value?.tables_state || !activePlayers.value) return []
+  
+  // Vérifier si les joueurs ont déjà un attribut 'table'
+  if (activePlayers.value.length > 0 && 'table' in activePlayers.value[0]) {
+    return activePlayers.value.filter(player => player.table === tableIndex);
+  } else {
+    // Si les joueurs n'ont pas d'attribut 'table', il faut l'ajouter à partir de tables_state
+    // Cette partie nécessite d'adapter la structure selon la façon dont tables_state est organisé
+    return [];
+  }
 }
 
 const getPlayerAtPosition = (tableIndex, position) => {
-  if (!activePlayers.value) return null
-  return activePlayers.value.find(player => 
-    player.table === tableIndex && player.position === position
-  )
+  // Pour la phase "PLANNED", on n'a pas encore de positions définies
+  if (tournament.value?.status === 'PLANNED') {
+    return null;
+  }
+  
+  // Pour les tournois en cours, vérifier dans tables_state
+  if (!tournament.value?.tables_state) return null;
+  
+  // Adapter cette partie selon la structure de tables_state
+  const tableState = tournament.value.tables_state[`table_${tableIndex}`];
+  if (!tableState) return null;
+  
+  const playerId = tableState[`position_${position}`];
+  if (!playerId) return null;
+  
+  // Trouver le joueur avec cet ID
+  const player = activePlayers.value.find(p => p.user_id === playerId);
+  return player ? player.user : null;
 }
 
 const isPositionOccupied = (tableIndex, position) => {
-  return getPlayerAtPosition(tableIndex, position) !== undefined
+  return getPlayerAtPosition(tableIndex, position) !== null;
 }
 
 const handlePositionClick = (tableIndex, position) => {
@@ -951,9 +1020,15 @@ const handlePositionClick = (tableIndex, position) => {
 const updatePlayerLists = () => {
   if (tournament.value && tournament.value.participations) {
     activePlayers.value = tournament.value.participations
-      .filter(p => p && p.is_active) || []
+      .filter(p => p && p.is_active === true) || []
     eliminatedPlayers.value = tournament.value.participations
-      .filter(p => p && !p.is_active) || []
+      .filter(p => p && p.is_active === false) || []
+    
+    // Ajouter les propriétés table et position si nécessaire pour l'affichage des tables
+    if (tournament.value.status !== 'PLANNED' && tournament.value.tables_state) {
+      // Cette partie dépend de la structure exacte de tables_state
+      // Il faudrait adapter cette logique selon votre structure
+    }
     
     console.log('Joueurs actifs:', activePlayers.value)
     console.log('Joueurs éliminés:', eliminatedPlayers.value)
@@ -1367,15 +1442,20 @@ const teardownWebSocket = () => {
   wsConnected.value = false
 }
 
+/**
+ * Rafraîchit les données du tournoi et met à jour les listes de joueurs
+ * Cette fonction est appelée après des actions comme rebuy, élimination, etc.
+ */
 const refreshTournament = async () => {
   if (!tournament.value) return;
   
   try {
     loading.value = true;
     
+    // Récupérer les données à jour du tournoi
     await tournamentStore.fetchTournament(tournament.value.id);
     
-    // Mise à jour des listes de joueurs
+    // Mettre à jour les listes de joueurs avec les nouvelles données
     updatePlayerLists();
     
     console.log('Tournament refreshed:', tournament.value);
