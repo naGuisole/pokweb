@@ -16,17 +16,10 @@
               <div class="d-flex align-center flex-wrap mb-1">
                 <v-icon size="small" class="mr-2">mdi-calendar</v-icon>
                 <span class="mr-4">{{ formatDate(tournament.date) }}</span>
-                <v-chip
-                  :color="getStatusColor(tournament.status)"
-                  class="mr-2"
-                  size="small"
-                >
+                <v-chip :color="getStatusColor(tournament.status)" class="mr-2" size="small">
                   {{ getStatusLabel(tournament.status) }}
                 </v-chip>
-                <v-chip
-                  size="small"
-                  color="blue"
-                >
+                <v-chip size="small" color="blue">
                   {{ tournament.tournament_type }}
                 </v-chip>
               </div>
@@ -57,13 +50,7 @@
 
       <!-- Navigation par onglets -->
       <v-card>
-        <v-tabs
-          v-model="activeTab"
-          bg-color="primary"
-          dark
-          centered
-          show-arrows
-        >
+        <v-tabs v-model="activeTab" bg-color="primary" dark centered show-arrows>
           <v-tab value="players">
             <v-icon start>mdi-account-group</v-icon>
             Joueurs
@@ -83,121 +70,85 @@
             <!-- Onglet Joueurs -->
             <v-window-item value="players">
               <div class="pa-4">
-                <v-data-table
-                  :headers="playerHeaders"
-                  :items="sortedPlayers"
-                  :loading="loading"
-                  :items-per-page="10"
-                  item-value="id"
-                  class="elevation-1"
-                >
+                <v-data-table :headers="playerHeaders" :items="sortedPlayers" :loading="loading" :items-per-page="10"
+                  item-value="id" class="elevation-1">
                   <!-- Nom du joueur et badges -->
                   <template v-slot:item.player="{ item }">
                     <div class="d-flex align-center">
                       <v-avatar size="32" class="mr-2">
-                        <v-img
-                          v-if="item.raw && item.raw.user && item.raw.user.profile_image_path"
-                          :src="item.raw.user.profile_image_path"
-                          alt="Avatar"
-                        ></v-img>
+                        <v-img v-if="item.raw && item.raw.user && item.raw.user.profile_image_path"
+                          :src="item.raw.user.profile_image_path" alt="Avatar"></v-img>
                         <v-icon v-else size="small">mdi-account</v-icon>
                       </v-avatar>
                       <span>{{ item.raw && item.raw.user ? item.raw.user.username : 'Unknown' }}</span>
-                      
+
                       <!-- Add null checks to all badge conditions -->
                       <v-tooltip v-if="item.raw && isWinner(item.raw)" location="bottom">
                         <template v-slot:activator="{ props }">
-                          <v-icon 
-                            v-bind="props"
-                            color="amber" 
-                            class="ml-2"
-                          >
+                          <v-icon v-bind="props" color="amber" class="ml-2">
                             {{ tournament.value.tournament_type === 'JAPT' ? 'mdi-poker-chip' : 'mdi-trophy' }}
                           </v-icon>
                         </template>
-                        <span>{{ tournament.value.tournament_type === 'JAPT' ? 'Détenteur du Jeton d\'Argile' : 'Vainqueur' }}</span>
+                        <span>{{ tournament.value.tournament_type === 'JAPT' ? 'Détenteur du Jeton d\'Argile' :
+                          'Vainqueur' }}</span>
                       </v-tooltip>
-                      
+
                       <!-- Badge bubble -->
                       <v-tooltip v-if="item.raw && isBubbleBoy(item.raw)" location="bottom">
                         <template v-slot:activator="{ props }">
-                          <v-icon 
-                            v-bind="props" 
-                            color="blue" 
-                            class="ml-2"
-                          >
+                          <v-icon v-bind="props" color="blue" class="ml-2">
                             mdi-water
                           </v-icon>
                         </template>
                         <span>Bubble Boy</span>
                       </v-tooltip>
-                      
+
                       <!-- Badges spécifiques JAPT -->
                       <template v-if="tournament.value && tournament.value.tournament_type === 'JAPT'">
                         <!-- Badge Bounty Hunter -->
                         <v-tooltip v-if="item.raw && isBountyHunter(item.raw)" location="bottom">
                           <template v-slot:activator="{ props }">
-                            <v-icon 
-                              v-bind="props"
-                              color="red" 
-                              class="ml-2"
-                            >
+                            <v-icon v-bind="props" color="red" class="ml-2">
                               mdi-target
                             </v-icon>
                           </template>
                           <span>Bounty Hunter</span>
                         </v-tooltip>
-                        
+
                         <!-- Badge Jeton d'Argile brisé -->
                         <v-tooltip v-if="item.raw && hadClayToken(item.raw) && !isWinner(item.raw)" location="bottom">
                           <template v-slot:activator="{ props }">
-                            <v-icon 
-                              v-bind="props" 
-                              color="grey" 
-                              class="ml-2"
-                            >
+                            <v-icon v-bind="props" color="grey" class="ml-2">
                               mdi-poker-chip-off
                             </v-icon>
                           </template>
                           <span>Jeton d'Argile perdu</span>
                         </v-tooltip>
-                        
+
                         <!-- Badge double victoire -->
                         <v-tooltip v-if="item.raw && hasDoubleWin(item.raw)" location="bottom">
                           <template v-slot:activator="{ props }">
-                            <v-icon 
-                              v-bind="props"
-                              color="amber" 
-                              class="ml-2"
-                            >
+                            <v-icon v-bind="props" color="amber" class="ml-2">
                               mdi-numeric-2-circle
                             </v-icon>
                           </template>
                           <span>Double victoire</span>
                         </v-tooltip>
-                        
+
                         <!-- Badge double victoire perdue -->
                         <v-tooltip v-if="item.raw && hadDoubleWin(item.raw) && !isWinner(item.raw)" location="bottom">
                           <template v-slot:activator="{ props }">
-                            <v-icon 
-                              v-bind="props"
-                              color="grey" 
-                              class="ml-2"
-                            >
+                            <v-icon v-bind="props" color="grey" class="ml-2">
                               mdi-numeric-2-circle-outline
                             </v-icon>
                           </template>
                           <span>Double victoire perdue</span>
                         </v-tooltip>
-                        
+
                         <!-- Badge triplé -->
                         <v-tooltip v-if="item.raw && hasTripleWin(item.raw)" location="bottom">
                           <template v-slot:activator="{ props }">
-                            <v-icon 
-                              v-bind="props"
-                              color="gold" 
-                              class="ml-2"
-                            >
+                            <v-icon v-bind="props" color="gold" class="ml-2">
                               mdi-numeric-3-circle
                             </v-icon>
                           </template>
@@ -206,48 +157,35 @@
                       </template>
                     </div>
                   </template>
-                    </div>
-                  </template>
-                  
+
                   <!-- Heure d'inscription -->
                   <template v-slot:item.registration_time="{ item }">
                     {{ item.raw && item.raw.registration_time ? formatTime(item.raw.registration_time) : '-' }}
                   </template>
-                  
+
                   <!-- Buy-in total -->
                   <template v-slot:item.total_buyin="{ item }">
                     {{ item.raw ? formatMoney(item.raw.total_buyin) : '-' }}
                   </template>
-                  
+
                   <!-- Position finale -->
                   <template v-slot:item.final_position="{ item }">
                     <span v-if="item.raw && item.raw.is_active">En jeu</span>
                     <span v-else>{{ item.raw ? (item.raw.current_position || '-') : '-' }}</span>
                   </template>
-                  
+
                   <!-- Prix -->
                   <template v-slot:item.prize_won="{ item }">
                     {{ item.raw ? formatMoney(item.raw.prize_won) : '-' }}
                   </template>
-                  
+
                   <!-- Actions pour admin -->
                   <template v-slot:item.actions="{ item }">
                     <div v-if="isAdmin && tournament && tournament.status === 'IN_PROGRESS' && item.raw">
-                      <v-btn
-                        v-if="item.raw.is_active"
-                        icon="mdi-account-remove"
-                        size="small"
-                        color="error"
-                        @click="handleElimination(item.raw)"
-                      ></v-btn>
-                      <v-btn
-                        v-if="item.raw.is_active && canRebuy"
-                        icon="mdi-refresh"
-                        size="small"
-                        color="success"
-                        class="ml-2"
-                        @click="handleRebuy(item.raw)"
-                      ></v-btn>
+                      <v-btn v-if="item.raw.is_active" icon="mdi-account-remove" size="small" color="error"
+                        @click="handleElimination(item.raw)"></v-btn>
+                      <v-btn v-if="item.raw.is_active && canRebuy" icon="mdi-refresh" size="small" color="success"
+                        class="ml-2" @click="handleRebuy(item.raw)"></v-btn>
                     </div>
                   </template>
                 </v-data-table>
@@ -266,57 +204,38 @@
                         <div class="text-h1 timer-display" :class="{ 'timer-warning': timeRemaining <= 60 }">
                           {{ formattedTimeRemaining }}
                         </div>
-                        
+
                         <!-- Niveau actuel et blindes -->
                         <div class="text-h5 mb-4">
                           Niveau {{ currentLevel }} - Blindes: {{ currentBlinds }}
                         </div>
-                        
+
                         <!-- Barre de progression -->
-                        <v-progress-linear
-                          v-model="timerProgress"
-                          height="10"
-                          :color="timerProgressColor"
-                          rounded
-                          class="mb-4"
-                        ></v-progress-linear>
-                        
+                        <v-progress-linear v-model="timerProgress" height="10" :color="timerProgressColor" rounded
+                          class="mb-4"></v-progress-linear>
+
                         <!-- Prochaines blindes -->
                         <div class="text-subtitle-1">
                           Prochain niveau: {{ nextBlinds }}
                         </div>
-                        
+
                         <!-- Contrôles admin -->
                         <div v-if="isAdmin" class="mt-6 d-flex justify-center">
-                          <v-btn
-                            color="primary"
-                            :prepend-icon="isPaused ? 'mdi-play' : 'mdi-pause'"
-                            class="mx-2"
-                            @click="togglePause"
-                          >
+                          <v-btn color="primary" :prepend-icon="isPaused ? 'mdi-play' : 'mdi-pause'" class="mx-2"
+                            @click="togglePause">
                             {{ isPaused ? 'Reprendre' : 'Pause' }}
                           </v-btn>
-                          <v-btn
-                            color="warning"
-                            prepend-icon="mdi-skip-next"
-                            class="mx-2"
-                            @click="confirmNextLevel"
-                          >
+                          <v-btn color="warning" prepend-icon="mdi-skip-next" class="mx-2" @click="confirmNextLevel">
                             Niveau suivant
                           </v-btn>
-                          <v-btn
-                            color="success"
-                            prepend-icon="mdi-refresh"
-                            class="mx-2"
-                            @click="resetTimer"
-                          >
+                          <v-btn color="success" prepend-icon="mdi-refresh" class="mx-2" @click="resetTimer">
                             Réinitialiser
                           </v-btn>
                         </div>
                       </v-card-text>
                     </v-card>
                   </v-col>
-                  
+
                   <!-- Statistiques du tournoi -->
                   <v-col cols="12" md="4">
                     <v-card class="elevation-1">
@@ -328,7 +247,7 @@
                           <v-list-item-title>Joueurs restants</v-list-item-title>
                           <v-list-item-subtitle class="text-right">{{ activePlayers.length }}</v-list-item-subtitle>
                         </v-list-item>
-                        
+
                         <v-list-item>
                           <template v-slot:prepend>
                             <v-icon icon="mdi-poker-chip"></v-icon>
@@ -336,7 +255,7 @@
                           <v-list-item-title>Stack moyen</v-list-item-title>
                           <v-list-item-subtitle class="text-right">{{ averageStack }}</v-list-item-subtitle>
                         </v-list-item>
-                        
+
                         <v-list-item>
                           <template v-slot:prepend>
                             <v-icon icon="mdi-clock-outline"></v-icon>
@@ -344,7 +263,7 @@
                           <v-list-item-title>Temps écoulé</v-list-item-title>
                           <v-list-item-subtitle class="text-right">{{ elapsedTime }}</v-list-item-subtitle>
                         </v-list-item>
-                        
+
                         <v-list-item>
                           <template v-slot:prepend>
                             <v-icon icon="mdi-clock"></v-icon>
@@ -354,7 +273,7 @@
                         </v-list-item>
                       </v-list>
                     </v-card>
-                    
+
                     <!-- Distribution des gains -->
                     <v-card class="mt-4 elevation-1">
                       <v-card-title>Distribution des gains</v-card-title>
@@ -362,34 +281,25 @@
                         <v-list density="compact">
                           <v-list-item v-for="(prize, index) in prizeDistribution" :key="index">
                             <v-list-item-title>{{ prize.position }}</v-list-item-title>
-                            <v-list-item-subtitle class="text-right">{{ formatMoney(prize.amount) }}</v-list-item-subtitle>
+                            <v-list-item-subtitle class="text-right">{{ formatMoney(prize.amount)
+                              }}</v-list-item-subtitle>
                           </v-list-item>
                         </v-list>
                       </v-card-text>
                     </v-card>
-                    
+
                     <!-- Structure des blindes -->
                     <v-card class="mt-4 elevation-1">
                       <v-card-title class="d-flex justify-space-between align-center">
                         <span>Structure des blindes</span>
-                        <v-btn
-                          v-if="isAdmin"
-                          icon
-                          size="small"
-                          @click="showBlindsStructure = !showBlindsStructure"
-                        >
+                        <v-btn v-if="isAdmin" icon size="small" @click="showBlindsStructure = !showBlindsStructure">
                           <v-icon>{{ showBlindsStructure ? 'mdi-chevron-up' : 'mdi-chevron-down' }}</v-icon>
                         </v-btn>
                       </v-card-title>
                       <v-expand-transition>
                         <div v-if="showBlindsStructure">
-                          <v-data-table
-                            :headers="blindsHeaders"
-                            :items="blindsStructure"
-                            hide-default-footer
-                            density="compact"
-                            class="blinds-table"
-                          >
+                          <v-data-table :headers="blindsHeaders" :items="blindsStructure" hide-default-footer
+                            density="compact" class="blinds-table">
                             <template v-slot:item.duration="{ item }">
                               {{ item.raw.duration }} min
                             </template>
@@ -411,35 +321,19 @@
                 <v-row>
                   <!-- Contrôles des tables pour admin -->
                   <v-col v-if="isAdmin" cols="12" class="d-flex justify-end mb-4">
-                    <v-btn
-                      color="primary"
-                      prepend-icon="mdi-refresh"
-                      class="mx-2"
-                      @click="redrawTables"
-                      :disabled="!canRedraw"
-                    >
+                    <v-btn color="primary" prepend-icon="mdi-refresh" class="mx-2" @click="redrawTables"
+                      :disabled="!canRedraw">
                       Redraw
                     </v-btn>
-                    <v-btn
-                      v-if="tables.length > 1"
-                      color="warning"
-                      prepend-icon="mdi-table-remove"
-                      class="mx-2"
-                      @click="breakTable"
-                    >
+                    <v-btn v-if="tables.length > 1" color="warning" prepend-icon="mdi-table-remove" class="mx-2"
+                      @click="breakTable">
                       Casser une table
                     </v-btn>
                   </v-col>
-                  
+
                   <!-- Affichage des tables -->
-                  <v-col 
-                    v-for="(tableIndex, index) in tables"
-                    :key="index"
-                    cols="12"
-                    :md="tables.length > 1 ? 6 : 12"
-                    :lg="tables.length > 2 ? 4 : (tables.length > 1 ? 6 : 12)"
-                    class="mb-4"
-                  >
+                  <v-col v-for="(tableIndex, index) in tables" :key="index" cols="12" :md="tables.length > 1 ? 6 : 12"
+                    :lg="tables.length > 2 ? 4 : (tables.length > 1 ? 6 : 12)" class="mb-4">
                     <v-card class="elevation-3">
                       <v-card-title class="d-flex justify-space-between">
                         <span>Table {{ index + 1 }}</span>
@@ -450,25 +344,18 @@
                           <div class="poker-table">
                             <!-- Bouton Dealer -->
                             <div v-if="dealerPosition !== null" class="dealer-button">D</div>
-                            
+
                             <!-- Positions des joueurs -->
-                            <div 
-                              v-for="position in 10" 
-                              :key="position"
-                              :class="[
-                                'player-position',
-                                `position-${position - 1}`,
-                                { 'occupied': isPositionOccupied(tableIndex, position - 1) }
-                              ]"
-                              @click="handlePositionClick(tableIndex, position - 1)"
-                            >
+                            <div v-for="position in 10" :key="position" :class="[
+                              'player-position',
+                              `position-${position - 1}`,
+                              { 'occupied': isPositionOccupied(tableIndex, position - 1) }
+                            ]" @click="handlePositionClick(tableIndex, position - 1)">
                               <template v-if="getPlayerAtPosition(tableIndex, position - 1)">
                                 <v-avatar size="40" class="elevation-2 player-avatar">
-                                  <v-img
-                                    v-if="getPlayerAtPosition(tableIndex, position - 1).profile_image_path"
+                                  <v-img v-if="getPlayerAtPosition(tableIndex, position - 1).profile_image_path"
                                     :src="getPlayerAtPosition(tableIndex, position - 1).profile_image_path"
-                                    alt="Avatar"
-                                  ></v-img>
+                                    alt="Avatar"></v-img>
                                   <v-icon v-else>mdi-account</v-icon>
                                 </v-avatar>
                                 <div class="player-name">
@@ -494,35 +381,24 @@
       </v-card>
 
       <!-- Dialogues pour les actions du tournoi -->
-      <tournament-dialogs
-        ref="dialogsRef"
-        :total-players="activePlayers.length + eliminatedPlayers.length"
-        @rebuy-confirmed="confirmRebuy"
-        @elimination-confirmed="confirmElimination"
-        @table-rebalance-confirmed="confirmRebalance"
-      />
+      <tournament-dialogs ref="dialogsRef" :total-players="activePlayers.length + eliminatedPlayers.length"
+        @rebuy-confirmed="confirmRebuy" @elimination-confirmed="confirmElimination"
+        @table-rebalance-confirmed="confirmRebalance" />
 
       <!-- Dialogue de confirmation pour passer au niveau suivant -->
       <v-dialog v-model="showNextLevelConfirm" max-width="400">
         <v-card>
           <v-card-title>Confirmer le changement de niveau</v-card-title>
           <v-card-text>
-            Êtes-vous sûr de vouloir passer au niveau suivant ? 
+            Êtes-vous sûr de vouloir passer au niveau suivant ?
             Cette action ne peut pas être annulée.
           </v-card-text>
           <v-card-actions>
             <v-spacer></v-spacer>
-            <v-btn
-              color="grey-lighten-1"
-              variant="text"
-              @click="showNextLevelConfirm = false"
-            >
+            <v-btn color="grey-lighten-1" variant="text" @click="showNextLevelConfirm = false">
               Annuler
             </v-btn>
-            <v-btn
-              color="primary"
-              @click="nextLevel"
-            >
+            <v-btn color="primary" @click="nextLevel">
               Confirmer
             </v-btn>
           </v-card-actions>
@@ -538,27 +414,15 @@
             Les joueurs seront répartis sur les autres tables.
           </v-card-text>
           <v-card-text>
-            <v-select
-              v-model="tableToBreak"
-              :items="tableSelectItems"
-              label="Sélectionner une table"
-              required
-            ></v-select>
+            <v-select v-model="tableToBreak" :items="tableSelectItems" label="Sélectionner une table"
+              required></v-select>
           </v-card-text>
           <v-card-actions>
             <v-spacer></v-spacer>
-            <v-btn
-              color="grey-lighten-1"
-              variant="text"
-              @click="showBreakTableConfirm = false"
-            >
+            <v-btn color="grey-lighten-1" variant="text" @click="showBreakTableConfirm = false">
               Annuler
             </v-btn>
-            <v-btn
-              color="primary"
-              @click="confirmBreakTable"
-              :disabled="tableToBreak === null"
-            >
+            <v-btn color="primary" @click="confirmBreakTable" :disabled="tableToBreak === null">
               Confirmer
             </v-btn>
           </v-card-actions>
@@ -566,18 +430,10 @@
       </v-dialog>
 
       <!-- Notifications -->
-      <v-snackbar
-        v-model="snackbar.show"
-        :color="snackbar.color"
-        :timeout="snackbar.timeout"
-      >
+      <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="snackbar.timeout">
         {{ snackbar.text }}
         <template v-slot:actions>
-          <v-btn
-            color="white"
-            text
-            @click="snackbar.show = false"
-          >
+          <v-btn color="white" text @click="snackbar.show = false">
             Fermer
           </v-btn>
         </template>
@@ -585,11 +441,7 @@
     </template>
 
     <!-- Message tournoi non trouvé -->
-    <v-alert
-      v-else-if="!loading"
-      type="error"
-      class="mt-4"
-    >
+    <v-alert v-else-if="!loading" type="error" class="mt-4">
       Tournoi non trouvé ou erreur lors du chargement.
     </v-alert>
   </v-container>
@@ -652,17 +504,17 @@ const isAdmin = computed(() => {
 const sortedPlayers = computed(() => {
   // Safely combine players with null checks
   const allPlayers = [
-    ...(activePlayers.value || []), 
+    ...(activePlayers.value || []),
     ...(eliminatedPlayers.value || [])
   ].filter(p => p) // Filter out any null/undefined values
-  
+
   if (!tournament.value) return []
-  
+
   let sortedPlayers = allPlayers;
-  
+
   if (tournament.value.status === 'PLANNED') {
     // Tri par heure d'inscription pour les tournois planifiés
-    sortedPlayers = allPlayers.sort((a, b) => 
+    sortedPlayers = allPlayers.sort((a, b) =>
       new Date(a.registration_time) - new Date(b.registration_time)
     )
   } else {
@@ -675,7 +527,7 @@ const sortedPlayers = computed(() => {
       return (a.current_position || 999) - (b.current_position || 999)
     })
   }
-  
+
   // Mapper les participations pour le format du tableau
   return mapParticipationsToTableRows(sortedPlayers);
 })
@@ -754,19 +606,19 @@ const playerHeaders = computed(() => {
     { title: 'Position', key: 'final_position' },
     { title: 'Gains', key: 'prize_won' }
   ]
-  
+
   // Ajout de la colonne actions pour les admins
   if (isAdmin.value && tournament.value?.status === 'IN_PROGRESS') {
     headers.push({ title: 'Actions', key: 'actions', sortable: false })
   }
-  
+
   return headers
 })
 
 // Statistiques du tournoi
 const averageStack = computed(() => {
   if (!activePlayers.value || activePlayers.value.length === 0) return 0
-  const totalChips = activePlayers.value.reduce((sum, player) => 
+  const totalChips = activePlayers.value.reduce((sum, player) =>
     sum + (player.current_chips || 0), 0
   )
   return formatNumber(totalChips / activePlayers.value.length)
@@ -777,11 +629,11 @@ const elapsedTime = computed(() => {
   const startTime = new Date(tournament.value.start_time)
   const now = new Date()
   const elapsedMs = now - startTime
-  
+
   const hours = Math.floor(elapsedMs / 3600000)
   const minutes = Math.floor((elapsedMs % 3600000) / 60000)
   const seconds = Math.floor((elapsedMs % 60000) / 1000)
-  
+
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 })
 
@@ -791,16 +643,16 @@ const currentTime = computed(() => {
 
 const prizeDistribution = computed(() => {
   if (!tournament.value?.prize_pool) return []
-  
+
   // Récupérer la structure de paiement appropriée
   const payoutStructure = tournament.value.configuration?.payouts_structure
   if (!payoutStructure) return []
-  
+
   // Trouver la structure qui correspond au nombre de joueurs
   const totalPlayers = activePlayers.value.length + eliminatedPlayers.value.length
   const structure = payoutStructure.find(s => s.num_players <= totalPlayers)
   if (!structure) return []
-  
+
   // Calculer les montants en fonction du prize pool
   return structure.prizes.map(prize => ({
     position: `${prize.position}${getPositionSuffix(prize.position)}`,
@@ -856,50 +708,50 @@ const getStatusLabel = (status) => {
 // Fonction pour trouver le gagnant du tournoi parmi les participations
 const getWinner = (tournamentObj) => {
   if (!tournamentObj || !tournamentObj.participations) return null;
-  
+
   // Pour les tournois JAPT, le gagnant est le détenteur du jeton d'argile
   if (tournamentObj.tournament_type === 'JAPT' && tournamentObj.clay_token_holder_id) {
-    const winner = tournamentObj.participations.find(p => 
+    const winner = tournamentObj.participations.find(p =>
       p.user && p.user.id === tournamentObj.clay_token_holder_id
     );
     if (winner) return winner.user;
   }
-  
+
   // Pour les autres types de tournois, le gagnant est celui en position 1
-  const winner = tournamentObj.participations.find(p => 
+  const winner = tournamentObj.participations.find(p =>
     !p.is_active && p.current_position === 1
   );
-  
+
   return winner ? winner.user : null;
 }
 
 // Fonctions pour les badges des joueurs
 const isWinner = (player) => {
   if (!player || !tournament.value) return false
-  
+
   // For the tournaments JAPT, the winner is the holder of the clay token
   if (tournament.value.tournament_type === 'JAPT') {
     return player.user && player.user.id === tournament.value.clay_token_holder_id
   }
-  
+
   // For other tournaments, the winner is in position 1
   return player.current_position === 1 && !player.is_active
 }
 
 const isBubbleBoy = (player) => {
   if (!player || !tournament.value || tournament.value.status !== 'COMPLETED') return false
-  
+
   // Trouver la structure qui correspond au nombre de joueurs
   const totalPlayers = activePlayers.value.length + eliminatedPlayers.value.length
   const payoutStructure = tournament.value.configuration?.payouts_structure
   if (!payoutStructure) return false
-  
+
   const structure = payoutStructure.find(s => s.num_players <= totalPlayers)
   if (!structure) return false
-  
+
   // Trouver la dernière position payée
   const lastPaidPosition = Math.max(...structure.prizes.map(p => p.position))
-  
+
   // Le bubble boy est celui qui est éliminé juste avant le premier joueur payé
   return player.current_position === lastPaidPosition + 1 && !player.is_active
 }
@@ -939,7 +791,7 @@ const hasTripleWin = (player) => {
 // Fonction pour mapper les participations en format tableau
 const mapParticipationsToTableRows = (participations) => {
   if (!participations) return [];
-  
+
   return participations.map(p => {
     // Générer l'objet compatible avec v-data-table
     return {
@@ -961,10 +813,10 @@ const getPlayersAtTable = (tableIndex) => {
   if (tournament.value?.status === 'PLANNED') {
     return tableIndex === 0 ? activePlayers.value : [];
   }
-  
+
   // Pour les tournois en cours, utiliser la propriété tables_state
   if (!tournament.value?.tables_state || !activePlayers.value) return []
-  
+
   // Vérifier si les joueurs ont déjà un attribut 'table'
   if (activePlayers.value.length > 0 && 'table' in activePlayers.value[0]) {
     return activePlayers.value.filter(player => player.table === tableIndex);
@@ -980,17 +832,17 @@ const getPlayerAtPosition = (tableIndex, position) => {
   if (tournament.value?.status === 'PLANNED') {
     return null;
   }
-  
+
   // Pour les tournois en cours, vérifier dans tables_state
   if (!tournament.value?.tables_state) return null;
-  
+
   // Adapter cette partie selon la structure de tables_state
   const tableState = tournament.value.tables_state[`table_${tableIndex}`];
   if (!tableState) return null;
-  
+
   const playerId = tableState[`position_${position}`];
   if (!playerId) return null;
-  
+
   // Trouver le joueur avec cet ID
   const player = activePlayers.value.find(p => p.user_id === playerId);
   return player ? player.user : null;
@@ -1003,9 +855,9 @@ const isPositionOccupied = (tableIndex, position) => {
 const handlePositionClick = (tableIndex, position) => {
   // Si l'utilisateur n'est pas admin ou le tournoi n'est pas en cours, ne rien faire
   if (!isAdmin.value || tournament.value?.status !== 'IN_PROGRESS') return
-  
+
   const player = getPlayerAtPosition(tableIndex, position)
-  
+
   if (player) {
     // Si un joueur est déjà à cette position, ouvrir un menu d'action
     openPlayerActionMenu(player, tableIndex, position)
@@ -1023,13 +875,13 @@ const updatePlayerLists = () => {
       .filter(p => p && p.is_active === true) || []
     eliminatedPlayers.value = tournament.value.participations
       .filter(p => p && p.is_active === false) || []
-    
+
     // Ajouter les propriétés table et position si nécessaire pour l'affichage des tables
     if (tournament.value.status !== 'PLANNED' && tournament.value.tables_state) {
       // Cette partie dépend de la structure exacte de tables_state
       // Il faudrait adapter cette logique selon votre structure
     }
-    
+
     console.log('Joueurs actifs:', activePlayers.value)
     console.log('Joueurs éliminés:', eliminatedPlayers.value)
   }
@@ -1037,9 +889,9 @@ const updatePlayerLists = () => {
 
 const openPlayerActionMenu = (player, tableIndex, position) => {
   if (!dialogsRef.value) return
-  
+
   const actions = []
-  
+
   if (canRebuy.value) {
     actions.push({
       icon: 'mdi-refresh',
@@ -1047,13 +899,13 @@ const openPlayerActionMenu = (player, tableIndex, position) => {
       action: () => handleRebuy(player)
     })
   }
-  
+
   actions.push({
     icon: 'mdi-account-remove',
     title: 'Éliminer',
     action: () => handleElimination(player)
   })
-  
+
   // Afficher un menu contextuel
   // Cette fonctionnalité nécessiterait un composant supplémentaire
 }
@@ -1065,19 +917,19 @@ const showMovePlayerDialog = (tableIndex, position) => {
 // Gestion du timer et des niveaux
 const startTimer = () => {
   stopTimer() // Arrêter tout timer existant
-  
+
   if (isPaused.value) return
-  
+
   lastUpdateTime.value = Date.now()
-  
+
   timerInterval.value = setInterval(() => {
     if (timeRemaining.value > 0) {
       const now = Date.now()
       const elapsed = (now - lastUpdateTime.value) / 1000
       lastUpdateTime.value = now
-      
+
       timeRemaining.value = Math.max(0, timeRemaining.value - elapsed)
-      
+
       // Si le timer atteint zéro, notifier
       if (timeRemaining.value === 0) {
         levelComplete()
@@ -1097,27 +949,27 @@ const stopTimer = () => {
 
 const resetTimer = async () => {
   if (!isAdmin.value || !tournament.value) return
-  
+
   try {
     // Récupérer la durée du niveau actuel
     const level = blindsStructure.value.find(l => l.level === currentLevel.value)
     if (!level) return
-    
+
     const durationInSeconds = level.duration * 60
-    
+
     // Mettre à jour le timer sur le serveur
     await tournamentStore.updateTournamentTimer(tournament.value.id, durationInSeconds)
-    
+
     // Mettre à jour localement
     timeRemaining.value = durationInSeconds
     levelDuration.value = durationInSeconds
     lastUpdateTime.value = Date.now()
-    
+
     // Redémarrer le timer si nécessaire
     if (!isPaused.value) {
       startTimer()
     }
-    
+
     showSuccess('Timer réinitialisé')
   } catch (error) {
     console.error('Erreur lors de la réinitialisation du timer:', error)
@@ -1139,30 +991,30 @@ const confirmNextLevel = () => {
 
 const nextLevel = async () => {
   if (!isAdmin.value || !tournament.value) return
-  
+
   try {
     const nextLevelNumber = currentLevel.value + 1
     await tournamentStore.updateTournamentLevel(tournament.value.id, nextLevelNumber)
-    
+
     // Fermer le dialogue de confirmation
     showNextLevelConfirm.value = false
-    
+
     // Mettre à jour localement
     currentLevel.value = nextLevelNumber
-    
+
     // Mettre à jour le timer avec la durée du nouveau niveau
     const level = blindsStructure.value.find(l => l.level === nextLevelNumber)
     if (level) {
       timeRemaining.value = level.duration * 60
       levelDuration.value = level.duration * 60
       lastUpdateTime.value = Date.now()
-      
+
       // Redémarrer le timer si nécessaire
       if (!isPaused.value) {
         startTimer()
       }
     }
-    
+
     showSuccess(`Passage au niveau ${nextLevelNumber}`)
   } catch (error) {
     console.error('Erreur lors du changement de niveau:', error)
@@ -1172,7 +1024,7 @@ const nextLevel = async () => {
 
 const togglePause = async () => {
   if (!isAdmin.value || !tournament.value) return
-  
+
   try {
     if (isPaused.value) {
       // Reprendre le tournoi
@@ -1202,14 +1054,14 @@ const handleRebuy = (player) => {
 
 const confirmRebuy = async (data) => {
   if (!tournament.value) return
-  
+
   try {
     await tournamentStore.processRebuy(tournament.value.id, {
       playerId: data.playerId,
       amount: data.amount,
       chips: data.chips
     })
-    
+
     showSuccess(`Rebuy effectué pour ${data.playerName}`)
     await refreshTournament()
   } catch (error) {
@@ -1225,7 +1077,7 @@ const handleElimination = (player) => {
 
 const confirmElimination = async (data) => {
   if (!tournament.value) return
-  
+
   try {
     await tournamentStore.eliminatePlayer(tournament.value.id, {
       playerId: data.playerId,
@@ -1234,7 +1086,7 @@ const confirmElimination = async (data) => {
       hadClayToken: data.hadClayToken,
       bountyHunterId: data.bountyHunterId
     })
-    
+
     showSuccess(`${data.playerName} éliminé en position ${data.position}`)
     await refreshTournament()
   } catch (error) {
@@ -1246,7 +1098,7 @@ const confirmElimination = async (data) => {
 // Gestion des tables
 const redrawTables = async () => {
   if (!isAdmin.value || !tournament.value) return
-  
+
   try {
     await tournamentStore.redrawTables(tournament.value.id)
     showSuccess('Redraw effectué avec succès')
@@ -1264,7 +1116,7 @@ const breakTable = () => {
 
 const confirmBreakTable = async () => {
   if (!isAdmin.value || !tournament.value || tableToBreak.value === null) return
-  
+
   try {
     await tournamentStore.breakTable(tournament.value.id, tableToBreak.value)
     showBreakTableConfirm.value = false
@@ -1279,7 +1131,7 @@ const confirmBreakTable = async () => {
 
 const confirmRebalance = async () => {
   if (!isAdmin.value || !tournament.value) return
-  
+
   try {
     await tournamentStore.rebalanceTables(tournament.value.id)
     showSuccess('Tables rééquilibrées avec succès')
@@ -1312,73 +1164,73 @@ const showError = (text) => {
 // WebSocket management
 const setupWebSocket = async () => {
   if (!tournament.value) return
-  
+
   try {
     await websocketService.connect(tournament.value.id)
     wsConnected.value = true
-    
+
     // Setup listeners
     const removeListeners = []
-    
+
     // Initial state
     removeListeners.push(
       websocketService.on('initial_state', (data) => {
         console.log('Initial state received:', data)
-        
+
         // Update tournament state
         if (data.current_level) {
           currentLevel.value = data.current_level
         }
-        
+
         if (data.seconds_remaining !== undefined && data.level_duration !== undefined) {
           timeRemaining.value = data.seconds_remaining
           levelDuration.value = data.level_duration
           lastUpdateTime.value = Date.now()
         }
-        
+
         isPaused.value = data.paused || false
-        
+
         // Start timer if not paused
         if (!isPaused.value) {
           startTimer()
         }
       })
     )
-    
+
     // Level changed
     removeListeners.push(
       websocketService.on('level_changed', (data) => {
         console.log('Level changed:', data)
-        
+
         if (data.level) {
           currentLevel.value = data.level
         }
-        
+
         if (data.seconds_remaining !== undefined && data.level_duration !== undefined) {
           timeRemaining.value = data.seconds_remaining
           levelDuration.value = data.level_duration
           lastUpdateTime.value = Date.now()
         }
-        
+
         // Restart timer if not paused
         if (!isPaused.value) {
           startTimer()
         }
       })
     )
-    
+
     // Pause status changed
     removeListeners.push(
       websocketService.on('pause_status_changed', (data) => {
         console.log('Pause status changed:', data)
-        
+
         isPaused.value = data.paused || false
-        
+
         if (data.seconds_remaining !== undefined) {
           timeRemaining.value = data.seconds_remaining
           lastUpdateTime.value = Date.now()
         }
-        
+
         if (isPaused.value) {
           stopTimer()
         } else {
@@ -1386,7 +1238,7 @@ const setupWebSocket = async () => {
         }
       })
     )
-    
+
     // Timer tick
     removeListeners.push(
       websocketService.on('timer_tick', (data) => {
@@ -1400,7 +1252,7 @@ const setupWebSocket = async () => {
         }
       })
     )
-    
+
     // Player eliminated
     removeListeners.push(
       websocketService.on('player_eliminated', (data) => {
@@ -1408,7 +1260,7 @@ const setupWebSocket = async () => {
         refreshTournament()
       })
     )
-    
+
     // Player rebuy
     removeListeners.push(
       websocketService.on('player_rebuy', (data) => {
@@ -1416,7 +1268,7 @@ const setupWebSocket = async () => {
         refreshTournament()
       })
     )
-    
+
     // Tables updated
     removeListeners.push(
       websocketService.on('tables_updated', (data) => {
@@ -1424,7 +1276,7 @@ const setupWebSocket = async () => {
         refreshTournament()
       })
     )
-    
+
     wsEventListeners.value = removeListeners
   } catch (error) {
     console.error('WebSocket connection failed:', error)
@@ -1436,7 +1288,7 @@ const teardownWebSocket = () => {
   // Clean up WebSocket listeners
   wsEventListeners.value.forEach(removeListener => removeListener())
   wsEventListeners.value = []
-  
+
   // Disconnect WebSocket
   websocketService.disconnect()
   wsConnected.value = false
@@ -1448,16 +1300,16 @@ const teardownWebSocket = () => {
  */
 const refreshTournament = async () => {
   if (!tournament.value) return;
-  
+
   try {
     loading.value = true;
-    
+
     // Récupérer les données à jour du tournoi
     await tournamentStore.fetchTournament(tournament.value.id);
-    
+
     // Mettre à jour les listes de joueurs avec les nouvelles données
     updatePlayerLists();
-    
+
     console.log('Tournament refreshed:', tournament.value);
   } catch (error) {
     console.error('Error refreshing tournament:', error);
@@ -1471,16 +1323,16 @@ const refreshTournament = async () => {
 // Lifecycle hooks
 onMounted(async () => {
   loading.value = true
-  
+
   try {
     const tournamentId = parseInt(route.params.id)
     if (isNaN(tournamentId)) {
       router.push('/tournaments')
       return
     }
-    
+
     await tournamentStore.fetchTournament(tournamentId)
-    
+
     if (!tournamentStore.currentTournament) {
       showError('Tournoi non trouvé')
       return
@@ -1488,7 +1340,7 @@ onMounted(async () => {
 
     // Mettre à jour les listes de joueurs
     updatePlayerLists()
-    
+
     console.log('Tournament data loaded:', tournament.value)
     console.log('Players:', tournament.value?.participations)
 
@@ -1498,17 +1350,17 @@ onMounted(async () => {
     } else {
       activeTab.value = 'progress'
     }
-    
+
     // Initialize timer state with null checks
     if (tournament.value.status === 'IN_PROGRESS') {
       currentLevel.value = tournament.value.current_level || 1
       timeRemaining.value = tournament.value.seconds_remaining || 0
       levelDuration.value = tournament.value.level_duration || 0
       isPaused.value = tournament.value.paused_at !== null
-      
+
       // Setup WebSocket for real-time updates
       await setupWebSocket()
-      
+
       // Start timer if not paused
       if (!isPaused.value) {
         startTimer()
@@ -1542,31 +1394,31 @@ watch(() => route.params.id, async (newId) => {
     // Clean up existing timers and connections
     stopTimer()
     teardownWebSocket()
-    
+
     loading.value = true
-    
+
     try {
       const tournamentId = parseInt(newId)
       if (isNaN(tournamentId)) {
         router.push('/tournaments')
         return
       }
-      
+
       await tournamentStore.fetchTournament(tournamentId)
-      
+
       // Mettre à jour les listes de joueurs
       updatePlayerLists()
-      
+
       // Reset and initialize state for new tournament
       if (tournament.value?.status === 'IN_PROGRESS') {
         currentLevel.value = tournament.value.current_level || 1
         timeRemaining.value = tournament.value.seconds_remaining || 0
         levelDuration.value = tournament.value.level_duration || 0
         isPaused.value = tournament.value.paused_at !== null
-        
+
         // Setup WebSocket for real-time updates
         await setupWebSocket()
-        
+
         // Start timer if not paused
         if (!isPaused.value) {
           startTimer()
@@ -1615,9 +1467,17 @@ watch(() => route.params.id, async (newId) => {
 }
 
 @keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.6; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 /* Styles pour les tables de poker */
@@ -1711,16 +1571,65 @@ watch(() => route.params.id, async (newId) => {
 }
 
 /* Positionnement des joueurs autour de la table */
-.position-0 { top: 10%; left: 50%; transform: translate(-50%, 0); }
-.position-1 { top: 20%; left: 80%; transform: translate(-50%, 0); }
-.position-2 { top: 50%; left: 90%; transform: translate(-50%, -50%); }
-.position-3 { top: 80%; left: 80%; transform: translate(-50%, -50%); }
-.position-4 { top: 90%; left: 50%; transform: translate(-50%, -50%); }
-.position-5 { top: 80%; left: 20%; transform: translate(-50%, -50%); }
-.position-6 { top: 50%; left: 10%; transform: translate(-50%, -50%); }
-.position-7 { top: 20%; left: 20%; transform: translate(-50%, 0); }
-.position-8 { top: 15%; left: 35%; transform: translate(-50%, 0); }
-.position-9 { top: 15%; left: 65%; transform: translate(-50%, 0); }
+.position-0 {
+  top: 10%;
+  left: 50%;
+  transform: translate(-50%, 0);
+}
+
+.position-1 {
+  top: 20%;
+  left: 80%;
+  transform: translate(-50%, 0);
+}
+
+.position-2 {
+  top: 50%;
+  left: 90%;
+  transform: translate(-50%, -50%);
+}
+
+.position-3 {
+  top: 80%;
+  left: 80%;
+  transform: translate(-50%, -50%);
+}
+
+.position-4 {
+  top: 90%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.position-5 {
+  top: 80%;
+  left: 20%;
+  transform: translate(-50%, -50%);
+}
+
+.position-6 {
+  top: 50%;
+  left: 10%;
+  transform: translate(-50%, -50%);
+}
+
+.position-7 {
+  top: 20%;
+  left: 20%;
+  transform: translate(-50%, 0);
+}
+
+.position-8 {
+  top: 15%;
+  left: 35%;
+  transform: translate(-50%, 0);
+}
+
+.position-9 {
+  top: 15%;
+  left: 65%;
+  transform: translate(-50%, 0);
+}
 
 /* Styles pour les tableaux */
 .blinds-table {
