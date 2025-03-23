@@ -82,7 +82,7 @@
                     </div>
                     <div class="text-body-1">
                       <v-icon start>mdi-account-group</v-icon>
-                      {{ nextTournament.participations }} / {{ nextTournament.max_players }} joueurs
+                      {{ nextTournament.participations?.length || 0 }} / {{ nextTournament.max_players }} joueurs
                     </div>
                     <div class="text-body-1">
                       <v-icon start>mdi-poker-chip</v-icon>

@@ -6,7 +6,8 @@ import { useAuthStore } from '@/stores/auth'
 import HomeView from '@/views/HomeView.vue'
 import LoginView from '@/views/LoginView.vue'
 import TournamentsView from '@/views/TournamentsView.vue'
-import TournamentDetailView from '@/views/TournamentDetailView.vue'
+// Utiliser une importation dynamique pour TournamentDetailView
+// import TournamentDetailView from '@/views/TournamentDetailView.vue'
 import StatsView from '@/views/StatsView.vue'
 import ProfileView from '@/views/ProfileView.vue'
 
@@ -33,7 +34,7 @@ const routes = [
   {
     path: '/tournaments/:id',
     name: 'tournament-detail',
-    component: TournamentDetailView,
+    component: () => import('@/views/TournamentDetailView.vue'),  // Importation dynamique
     meta: { title: 'Détail du tournoi', requiresAuth: true }
   },
   {

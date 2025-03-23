@@ -214,28 +214,28 @@
                   
                   <!-- Heure d'inscription -->
                   <template v-slot:item.registration_time="{ item }">
-                    {{ formatTime(item.raw.registration_time) }}
+                    {{ item.raw && item.raw.registration_time ? formatTime(item.raw.registration_time) : '-' }}
                   </template>
                   
                   <!-- Buy-in total -->
                   <template v-slot:item.total_buyin="{ item }">
-                    {{ formatMoney(item.raw.total_buyin) }}
+                    {{ item.raw ? formatMoney(item.raw.total_buyin) : '-' }}
                   </template>
                   
                   <!-- Position finale -->
                   <template v-slot:item.final_position="{ item }">
-                    <span v-if="item.raw.is_active">En jeu</span>
-                    <span v-else>{{ item.raw.current_position || '-' }}</span>
+                    <span v-if="item.raw && item.raw.is_active">En jeu</span>
+                    <span v-else>{{ item.raw ? (item.raw.current_position || '-') : '-' }}</span>
                   </template>
                   
                   <!-- Prix -->
                   <template v-slot:item.prize_won="{ item }">
-                    {{ formatMoney(item.raw.prize_won) }}
+                    {{ item.raw ? formatMoney(item.raw.prize_won) : '-' }}
                   </template>
                   
                   <!-- Actions pour admin -->
                   <template v-slot:item.actions="{ item }">
-                    <div v-if="isAdmin && tournament.status === 'IN_PROGRESS'">
+                    <div v-if="isAdmin && tournament && tournament.status === 'IN_PROGRESS' && item.raw">
                       <v-btn
                         v-if="item.raw.is_active"
                         icon="mdi-account-remove"
@@ -634,6 +634,8 @@ const dealerPosition = ref(0)
 const isPaused = ref(false)
 const lastUpdateTime = ref(Date.now())
 const timerInterval = ref(null)
+const activePlayers = ref([])
+const eliminatedPlayers = ref([])
 
 // Snackbar pour les notifications
 const snackbar = ref({
@@ -648,14 +650,6 @@ const tournament = computed(() => tournamentStore.currentTournament || null)
 const isAdmin = computed(() => {
   if (!tournament.value || !authStore.user) return false
   return tournament.value.admin_id === authStore.user.id
-})
-
-const activePlayers = computed(() => {
-  return tournamentStore.getActivePlayers?.filter(p => p && p.is_active) || []
-})
-
-const eliminatedPlayers = computed(() => {
-  return tournamentStore.getEliminatedPlayers || []
 })
 
 const sortedPlayers = computed(() => {
@@ -950,6 +944,19 @@ const handlePositionClick = (tableIndex, position) => {
     // Si la position est vide, permettre de déplacer un joueur
     // (cette fonctionnalité nécessiterait une autre interface)
     showMovePlayerDialog(tableIndex, position)
+  }
+}
+
+// Fonction pour mettre à jour les listes de joueurs
+const updatePlayerLists = () => {
+  if (tournament.value && tournament.value.participations) {
+    activePlayers.value = tournament.value.participations
+      .filter(p => p && p.is_active) || []
+    eliminatedPlayers.value = tournament.value.participations
+      .filter(p => p && !p.is_active) || []
+    
+    console.log('Joueurs actifs:', activePlayers.value)
+    console.log('Joueurs éliminés:', eliminatedPlayers.value)
   }
 }
 
@@ -1364,26 +1371,14 @@ const refreshTournament = async () => {
   if (!tournament.value) return;
   
   try {
-    loading.value = true; // Empêche l'accès aux données pendant le chargement
+    loading.value = true;
     
     await tournamentStore.fetchTournament(tournament.value.id);
-    tournamentData.value = tournamentStore.currentTournament;
     
-    // Vérification supplémentaire pour s'assurer que les données sont valides
-    if (tournamentData.value && tournamentData.value.participations) {
-      // Préparer les données des joueurs pour éviter des erreurs ultérieures
-      activePlayers.value = tournamentData.value.participations
-        .filter(p => p && p.is_active)
-        .map(p => ({...p})); // Copie pour éviter des références mutables
-        
-      eliminatedPlayers.value = tournamentData.value.participations
-        .filter(p => p && !p.is_active)
-        .map(p => ({...p}));
-    } else {
-      // Valeurs par défaut sécurisées
-      activePlayers.value = [];
-      eliminatedPlayers.value = [];
-    }
+    // Mise à jour des listes de joueurs
+    updatePlayerLists();
+    
+    console.log('Tournament refreshed:', tournament.value);
   } catch (error) {
     console.error('Error refreshing tournament:', error);
     showError('Erreur lors de la mise à jour des données du tournoi');
@@ -1405,26 +1400,31 @@ onMounted(async () => {
     }
     
     await tournamentStore.fetchTournament(tournamentId)
-    tournamentData.value = tournamentStore.currentTournament
     
-    if (!tournamentData.value) {
+    if (!tournamentStore.currentTournament) {
       showError('Tournoi non trouvé')
       return
     }
 
+    // Mettre à jour les listes de joueurs
+    updatePlayerLists()
+    
+    console.log('Tournament data loaded:', tournament.value)
+    console.log('Players:', tournament.value?.participations)
+
     // Set default active tab based on tournament status
-    if (tournamentData.value.status === 'PLANNED') {
+    if (tournament.value.status === 'PLANNED') {
       activeTab.value = 'players'
     } else {
       activeTab.value = 'progress'
     }
     
     // Initialize timer state with null checks
-    if (tournamentData.value.status === 'IN_PROGRESS') {
-      currentLevel.value = tournamentData.value.current_level || 1
-      timeRemaining.value = tournamentData.value.seconds_remaining || 0
-      levelDuration.value = tournamentData.value.level_duration || 0
-      isPaused.value = tournamentData.value.paused_at !== null
+    if (tournament.value.status === 'IN_PROGRESS') {
+      currentLevel.value = tournament.value.current_level || 1
+      timeRemaining.value = tournament.value.seconds_remaining || 0
+      levelDuration.value = tournament.value.level_duration || 0
+      isPaused.value = tournament.value.paused_at !== null
       
       // Setup WebSocket for real-time updates
       await setupWebSocket()
@@ -1448,6 +1448,14 @@ onUnmounted(() => {
   teardownWebSocket()
 })
 
+// Watch for tournament changes to update player lists
+watch(() => tournament.value, (newTournament) => {
+  if (newTournament) {
+    console.log('Tournament updated:', newTournament)
+    updatePlayerLists()
+  }
+}, { deep: true })
+
 // Watch for route changes to load new tournament
 watch(() => route.params.id, async (newId) => {
   if (newId) {
@@ -1465,14 +1473,16 @@ watch(() => route.params.id, async (newId) => {
       }
       
       await tournamentStore.fetchTournament(tournamentId)
-      tournamentData.value = tournamentStore.currentTournament
+      
+      // Mettre à jour les listes de joueurs
+      updatePlayerLists()
       
       // Reset and initialize state for new tournament
-      if (tournamentData.value?.status === 'IN_PROGRESS') {
-        currentLevel.value = tournamentData.value.current_level || 1
-        timeRemaining.value = tournamentData.value.seconds_remaining || 0
-        levelDuration.value = tournamentData.value.level_duration || 0
-        isPaused.value = tournamentData.value.paused_at !== null
+      if (tournament.value?.status === 'IN_PROGRESS') {
+        currentLevel.value = tournament.value.current_level || 1
+        timeRemaining.value = tournament.value.seconds_remaining || 0
+        levelDuration.value = tournament.value.level_duration || 0
+        isPaused.value = tournament.value.paused_at !== null
         
         // Setup WebSocket for real-time updates
         await setupWebSocket()
