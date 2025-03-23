@@ -1361,15 +1361,37 @@ const teardownWebSocket = () => {
 }
 
 const refreshTournament = async () => {
-  if (!tournament.value) return
+  if (!tournament.value) return;
   
   try {
-    await tournamentStore.fetchTournament(tournament.value.id)
-    tournamentData.value = tournamentStore.currentTournament
+    loading.value = true; // Empêche l'accès aux données pendant le chargement
+    
+    await tournamentStore.fetchTournament(tournament.value.id);
+    tournamentData.value = tournamentStore.currentTournament;
+    
+    // Vérification supplémentaire pour s'assurer que les données sont valides
+    if (tournamentData.value && tournamentData.value.participations) {
+      // Préparer les données des joueurs pour éviter des erreurs ultérieures
+      activePlayers.value = tournamentData.value.participations
+        .filter(p => p && p.is_active)
+        .map(p => ({...p})); // Copie pour éviter des références mutables
+        
+      eliminatedPlayers.value = tournamentData.value.participations
+        .filter(p => p && !p.is_active)
+        .map(p => ({...p}));
+    } else {
+      // Valeurs par défaut sécurisées
+      activePlayers.value = [];
+      eliminatedPlayers.value = [];
+    }
   } catch (error) {
-    console.error('Error refreshing tournament:', error)
+    console.error('Error refreshing tournament:', error);
+    showError('Erreur lors de la mise à jour des données du tournoi');
+  } finally {
+    loading.value = false;
   }
 }
+
 
 // Lifecycle hooks
 onMounted(async () => {
