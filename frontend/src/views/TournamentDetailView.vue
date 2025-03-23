@@ -75,22 +75,28 @@
                   <!-- Nom du joueur et badges -->
                   <template v-slot:item.player="{ item }">
                     <div class="d-flex align-center">
-                      <v-avatar size="32" class="mr-2">
-                        <v-img v-if="item.raw && item.raw.user && item.raw.user.profile_image_path"
-                          :src="item.raw.user.profile_image_path" alt="Avatar"></v-img>
-                        <v-icon v-else size="small">mdi-account</v-icon>
-                      </v-avatar>
-                      <span>{{ item.raw && item.raw.user ? item.raw.user.username : 'Unknown' }}</span>
-
-                      <!-- Add null checks to all badge conditions -->
+                      <!-- Avatar du joueur avec ProfileImage -->
+                      <div class="mr-2">
+                        <profile-image 
+                          :path="item.raw && item.raw.user ? item.raw.user.profile_image_path : null"
+                          :size="32"
+                          :alt="item.raw && item.raw.user ? item.raw.user.username : 'Avatar'"
+                        />
+                      </div>
+                      
+                      <!-- Nom d'utilisateur -->
+                      <span class="font-weight-medium">
+                        {{ item.raw && item.raw.user ? item.raw.user.username : 'Unknown' }}
+                      </span>
+                      
+                      <!-- Badge de vainqueur -->
                       <v-tooltip v-if="item.raw && isWinner(item.raw)" location="bottom">
                         <template v-slot:activator="{ props }">
-                          <v-icon v-bind="props" color="amber" class="ml-2">
-                            {{ tournament.value.tournament_type === 'JAPT' ? 'mdi-poker-chip' : 'mdi-trophy' }}
+                          <v-icon v-bind="props" color="amber-darken-2" class="ml-2">
+                            {{ tournament.tournament_type === 'JAPT' ? 'mdi-poker-chip' : 'mdi-trophy' }}
                           </v-icon>
                         </template>
-                        <span>{{ tournament.value.tournament_type === 'JAPT' ? 'Détenteur du Jeton d\'Argile' :
-                          'Vainqueur' }}</span>
+                        <span>{{ tournament.tournament_type === 'JAPT' ? 'Détenteur du Jeton d\'Argile' : 'Vainqueur' }}</span>
                       </v-tooltip>
 
                       <!-- Badge bubble -->
@@ -158,9 +164,9 @@
                     </div>
                   </template>
 
-                  <!-- Heure d'inscription -->
+                  <!-- Date et heure d'inscription -->
                   <template v-slot:item.registration_time="{ item }">
-                    {{ item.raw && item.raw.registration_time ? formatTime(item.raw.registration_time) : '-' }}
+                    {{ item.raw && item.raw.registration_time ? formatDate(item.raw.registration_time) : '-' }}
                   </template>
 
                   <!-- Buy-in total -->
@@ -455,7 +461,7 @@ import { useAuthStore } from '@/stores/auth'
 import { format, formatDistance } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { websocketService } from '@/services/websocket.service'
-
+import ProfileImage from '@/components/common/ProfileImage.vue'
 import TournamentDialogs from '@/components/tournament/TournamentDialogs.vue'
 
 const route = useRoute()

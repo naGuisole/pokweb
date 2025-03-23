@@ -31,7 +31,6 @@ async def create_league(
 @router.get("/", response_model=List[LeagueResponse])
 async def get_leagues(
         db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
 ):
     """Liste toutes les ligues avec leur membres et administrateurs"""
     # Récupération de toutes les ligues
