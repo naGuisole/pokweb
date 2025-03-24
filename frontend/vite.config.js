@@ -17,7 +17,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/ws': {
-        target: 'http://127.0.0.1:8000',  // Changé pour correspondre exactement à l'URL du backend
+        target: 'ws://127.0.0.1:8000',  // Changé pour correspondre exactement à l'URL du backend
         ws: true, // Important pour les WebSockets
         changeOrigin: true
       },

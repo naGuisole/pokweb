@@ -1190,6 +1190,11 @@ const showError = (text) => {
 // WebSocket management
 const setupWebSocket = async () => {
   if (!tournament.value) return
+  
+  // Vérifier si une connexion précédente existe et la fermer
+  if (wsConnected.value) {
+    teardownWebSocket()
+  }
 
   try {
     await websocketService.connect(tournament.value.id)
@@ -1204,50 +1209,52 @@ const setupWebSocket = async () => {
         console.log('Initial state received:', data);
         
         // Vérifier si les données de timer sont présentes
-        console.log('Timer data available:', {
-          current_level: data.current_level,
-          seconds_remaining: data.seconds_remaining,
-          level_duration: data.level_duration,
-          paused: data.paused
-        });
+        if (data) {
+          console.log('Timer data available:', {
+            current_level: data.current_level,
+            seconds_remaining: data.seconds_remaining,
+            level_duration: data.level_duration,
+            paused: data.paused
+          });
 
-        // Update tournament state
-        if (data.current_level !== undefined) {
-          // Démarrer au niveau 1 si le niveau reçu est 0
-          currentLevel.value = data.current_level || 1;
-          console.log('Setting current level to:', currentLevel.value);
-        }
-
-        // Si les données de timer ne sont pas fournies, les initialiser avec la durée par défaut du niveau actuel
-        if (data.seconds_remaining === undefined || data.level_duration === undefined) {
-          // Rechercher la structure de blindes correspondant au niveau
-          const level = blindsStructure.value.find(l => l.level === currentLevel.value);
-          
-          if (level) {
-            timeRemaining.value = level.duration * 60; // Convertir minutes en secondes
-            levelDuration.value = level.duration * 60;
-            console.log('Initializing timer with default level duration:', level.duration, 'minutes');
-          } else {
-            // Si aucune structure n'est trouvée, utiliser des valeurs par défaut
-            timeRemaining.value = 15 * 60; // 15 minutes par défaut
-            levelDuration.value = 15 * 60;
-            console.log('No level structure found, using default 15 minutes');
+          // Update tournament state
+          if (data.current_level !== undefined) {
+            // Démarrer au niveau 1 si le niveau reçu est 0
+            currentLevel.value = data.current_level || 1;
+            console.log('Setting current level to:', currentLevel.value);
           }
-        } else {
-          timeRemaining.value = data.seconds_remaining;
-          levelDuration.value = data.level_duration;
-          console.log('Setting timer from server data:', timeRemaining.value, 'seconds');
-        }
 
-        lastUpdateTime.value = Date.now();
-        isPaused.value = data.paused || false;
+          // Si les données de timer ne sont pas fournies, les initialiser avec la durée par défaut du niveau actuel
+          if (data.seconds_remaining === undefined || data.level_duration === undefined) {
+            // Rechercher la structure de blindes correspondant au niveau
+            const level = blindsStructure.value.find(l => l.level === currentLevel.value);
+            
+            if (level) {
+              timeRemaining.value = level.duration * 60; // Convertir minutes en secondes
+              levelDuration.value = level.duration * 60;
+              console.log('Initializing timer with default level duration:', level.duration, 'minutes');
+            } else {
+              // Si aucune structure n'est trouvée, utiliser des valeurs par défaut
+              timeRemaining.value = 15 * 60; // 15 minutes par défaut
+              levelDuration.value = 15 * 60;
+              console.log('No level structure found, using default 15 minutes');
+            }
+          } else {
+            timeRemaining.value = data.seconds_remaining;
+            levelDuration.value = data.level_duration;
+            console.log('Setting timer from server data:', timeRemaining.value, 'seconds');
+          }
 
-        // Start timer if not paused
-        if (!isPaused.value) {
-          startTimer();
-          console.log('Timer started');
-        } else {
-          console.log('Tournament is paused, timer not started');
+          lastUpdateTime.value = Date.now();
+          isPaused.value = data.paused || false;
+
+          // Start timer if not paused
+          if (!isPaused.value) {
+            startTimer();
+            console.log('Timer started');
+          } else {
+            console.log('Tournament is paused, timer not started');
+          }
         }
       })
     );
@@ -1340,9 +1347,13 @@ const setupWebSocket = async () => {
 }
 
 const teardownWebSocket = () => {
+  console.log('Cleaning up WebSocket connection')
+  
   // Clean up WebSocket listeners
-  wsEventListeners.value.forEach(removeListener => removeListener())
-  wsEventListeners.value = []
+  if (wsEventListeners.value.length > 0) {
+    wsEventListeners.value.forEach(removeListener => removeListener())
+    wsEventListeners.value = []
+  }
 
   // Disconnect WebSocket
   websocketService.disconnect()
@@ -1433,6 +1444,7 @@ onUnmounted(() => {
   // Clean up timers and WebSocket
   stopTimer()
   teardownWebSocket()
+  console.log('Component unmounted, resources cleaned up')
 })
 
 // Watch for tournament changes to update player lists
@@ -1446,6 +1458,8 @@ watch(() => tournament.value, (newTournament) => {
 // Watch for route changes to load new tournament
 watch(() => route.params.id, async (newId) => {
   if (newId) {
+    console.log(`Route changed from tournament ${oldId} to ${newId}`)
+
     // Clean up existing timers and connections
     stopTimer()
     teardownWebSocket()
