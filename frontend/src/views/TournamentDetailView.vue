@@ -922,28 +922,48 @@ const showMovePlayerDialog = (tableIndex, position) => {
 
 // Gestion du timer et des niveaux
 const startTimer = () => {
-  stopTimer() // Arrêter tout timer existant
+  console.log('Starting timer with remaining time:', timeRemaining.value);
+  
+  stopTimer(); // Arrêter tout timer existant
 
-  if (isPaused.value) return
+  if (isPaused.value) {
+    console.log('Timer not started: tournament is paused');
+    return;
+  }
 
-  lastUpdateTime.value = Date.now()
+  if (timeRemaining.value <= 0) {
+    console.log('Timer not started: no time remaining');
+    return;
+  }
+
+  lastUpdateTime.value = Date.now();
 
   timerInterval.value = setInterval(() => {
     if (timeRemaining.value > 0) {
-      const now = Date.now()
-      const elapsed = (now - lastUpdateTime.value) / 1000
-      lastUpdateTime.value = now
+      const now = Date.now();
+      const elapsed = (now - lastUpdateTime.value) / 1000;
+      lastUpdateTime.value = now;
 
-      timeRemaining.value = Math.max(0, timeRemaining.value - elapsed)
+      const oldValue = timeRemaining.value;
+      timeRemaining.value = Math.max(0, timeRemaining.value - elapsed);
+      
+      // Log every 5 seconds for debugging
+      if (Math.floor(oldValue / 5) !== Math.floor(timeRemaining.value / 5)) {
+        console.log('Timer update:', timeRemaining.value.toFixed(0), 'seconds remaining');
+      }
 
       // Si le timer atteint zéro, notifier
       if (timeRemaining.value === 0) {
-        levelComplete()
+        console.log('Timer reached zero, level complete');
+        levelComplete();
       }
     } else {
-      stopTimer()
+      console.log('Timer stopped: no time remaining');
+      stopTimer();
     }
-  }, 1000)
+  }, 1000);
+  
+  console.log('Timer interval started');
 }
 
 const stopTimer = () => {
@@ -1181,27 +1201,56 @@ const setupWebSocket = async () => {
     // Initial state
     removeListeners.push(
       websocketService.on('initial_state', (data) => {
-        console.log('Initial state received:', data)
+        console.log('Initial state received:', data);
+        
+        // Vérifier si les données de timer sont présentes
+        console.log('Timer data available:', {
+          current_level: data.current_level,
+          seconds_remaining: data.seconds_remaining,
+          level_duration: data.level_duration,
+          paused: data.paused
+        });
 
         // Update tournament state
-        if (data.current_level) {
-          currentLevel.value = data.current_level
+        if (data.current_level !== undefined) {
+          // Démarrer au niveau 1 si le niveau reçu est 0
+          currentLevel.value = data.current_level || 1;
+          console.log('Setting current level to:', currentLevel.value);
         }
 
-        if (data.seconds_remaining !== undefined && data.level_duration !== undefined) {
-          timeRemaining.value = data.seconds_remaining
-          levelDuration.value = data.level_duration
-          lastUpdateTime.value = Date.now()
+        // Si les données de timer ne sont pas fournies, les initialiser avec la durée par défaut du niveau actuel
+        if (data.seconds_remaining === undefined || data.level_duration === undefined) {
+          // Rechercher la structure de blindes correspondant au niveau
+          const level = blindsStructure.value.find(l => l.level === currentLevel.value);
+          
+          if (level) {
+            timeRemaining.value = level.duration * 60; // Convertir minutes en secondes
+            levelDuration.value = level.duration * 60;
+            console.log('Initializing timer with default level duration:', level.duration, 'minutes');
+          } else {
+            // Si aucune structure n'est trouvée, utiliser des valeurs par défaut
+            timeRemaining.value = 15 * 60; // 15 minutes par défaut
+            levelDuration.value = 15 * 60;
+            console.log('No level structure found, using default 15 minutes');
+          }
+        } else {
+          timeRemaining.value = data.seconds_remaining;
+          levelDuration.value = data.level_duration;
+          console.log('Setting timer from server data:', timeRemaining.value, 'seconds');
         }
 
-        isPaused.value = data.paused || false
+        lastUpdateTime.value = Date.now();
+        isPaused.value = data.paused || false;
 
         // Start timer if not paused
         if (!isPaused.value) {
-          startTimer()
+          startTimer();
+          console.log('Timer started');
+        } else {
+          console.log('Tournament is paused, timer not started');
         }
       })
-    )
+    );
 
     // Level changed
     removeListeners.push(

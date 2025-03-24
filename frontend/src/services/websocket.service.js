@@ -22,7 +22,9 @@ class WebSocketService {
         }
   
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-        const wsUrl = `${protocol}://${window.location.host}/api/ws/tournaments/${tournamentId}`
+        
+        // Construire l'URL en utilisant l'hôte actuel (localhost:5173 en développement)
+        const wsUrl = `${protocol}://${window.location.host}/ws/tournaments/${tournamentId}`
         
         console.log(`Connecting to WebSocket: ${wsUrl}`)
         this.socket = new WebSocket(wsUrl)
