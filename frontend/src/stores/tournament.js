@@ -61,31 +61,21 @@ export const useTournamentStore = defineStore('tournament', {
       
       // Filtrer les tournois planifiés dont la date est future
       const plannedTournaments = state.tournaments.filter(t => {
-
-        console.log(`Tournoi ${t.id}: ${t.name}, date: ${t.date}, status: ${t.status}`);
-
-
         if (t.status !== 'PLANNED') return false;
         
         // S'assurer que la date est bien parsée
         const tournamentDate = new Date(t.date).getTime();
         const isFuture = tournamentDate > now;
         
-        console.log(`Tournoi ${t.id}: ${t.name}, date: ${t.date}, timestamp: ${tournamentDate}, isFuture: ${isFuture}`);
-        
         return isFuture;
       });
       
-      console.log("Tournois planifiés à venir:", plannedTournaments);
-      
       if (plannedTournaments.length === 0) {
-        console.log("Pas de tournois planifiés à venir");
         return null;
       }
       
       // Trier par date (du plus proche au plus éloigné)
       const sorted = plannedTournaments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-      console.log("Prochain tournoi:", sorted[0]);
       return sorted[0];
     },
     
@@ -129,8 +119,12 @@ export const useTournamentStore = defineStore('tournament', {
       if (!state.currentTournament || !state.currentTournament.participations) {
         return 1
       }
-      const eliminatedPlayers = state.currentTournament.participations.filter(p => p.is_eliminated)
-      return eliminatedPlayers.length + 1
+      
+      // Compter les joueurs éliminés
+      const eliminatedCount = state.currentTournament.participations.filter(p => !p.is_active).length
+      
+      // La prochaine position d'élimination est le nombre total de joueurs moins le nombre d'éliminés
+      return state.currentTournament.participations.length - eliminatedCount
     },
 
     // Dernier tournoi terminé
@@ -140,7 +134,6 @@ export const useTournamentStore = defineStore('tournament', {
         .filter(t => t.status === 'COMPLETED')
         .sort((a, b) => new Date(b.date) - new Date(a.date))[0]
     }
-
   },
 
   actions: {
@@ -156,8 +149,6 @@ export const useTournamentStore = defineStore('tournament', {
         
         // Restaurer les filtres originaux
         this.filters = tempFilters;
-        
-        console.log("API Response:", response);
         
         if (Array.isArray(response)) {
           this.tournaments = response;
@@ -213,53 +204,27 @@ export const useTournamentStore = defineStore('tournament', {
     },
 
     // Mise à jour des informations d'un tournoi
-    async updateTournamentStatus(tournamentId, newStatus) {
+    async updateTournament(id, data) {
+      this.saving = true
       try {
-        const updated = await tournamentService.updateStatus(tournamentId, newStatus)
+        const updated = await tournamentService.updateTournament(id, data)
         if (Array.isArray(this.tournaments)) {
-          const index = this.tournaments.findIndex(t => t.id === tournamentId)
+          const index = this.tournaments.findIndex(t => t.id === id)
           if (index !== -1) {
             this.tournaments[index] = updated
           }
         }
-        if (this.currentTournament?.id === tournamentId) {
+        if (this.currentTournament?.id === id) {
           this.currentTournament = updated
         }
         return updated
       } catch (error) {
-        this.error = 'Erreur lors de la mise à jour du statut'
+        this.error = 'Erreur lors de la mise à jour du tournoi'
         throw error
+      } finally {
+        this.saving = false
       }
     },
-
-    // Gestion des inscriptions
-    async registerPlayer(tournamentId) {
-      try {
-        await tournamentService.registerPlayer(tournamentId)
-        await this.fetchTournament(tournamentId)
-        await this.fetchTournaments() // Rafraîchir la liste des tournois
-        return true
-      } catch (error) {
-        this.error = 'Erreur lors de l\'inscription'
-        throw error
-      }
-    },
-
-    // Gestion des désistements
-    async unregisterPlayer(tournamentId) {
-      try {
-        await tournamentService.unregisterPlayer(tournamentId)
-        await this.fetchTournament(tournamentId)
-        await this.fetchTournaments() // Rafraîchir la liste des tournois
-        return true
-      } catch (error) {
-        this.error = 'Erreur lors de la désinscription'
-        throw error
-      }
-    },
-
-    // Actions supplémentaires qui pourraient être manquantes 
-    // Par rapport à la vue TournamentsView.vue
 
     // Supprimer un tournoi
     async deleteTournament(id) {
@@ -291,7 +256,9 @@ export const useTournamentStore = defineStore('tournament', {
     async pauseTournament(id) {
       try {
         const result = await tournamentService.pauseTournament(id)
-        await this.fetchTournaments()
+        if (this.currentTournament?.id === id) {
+          await this.fetchTournament(id)
+        }
         return result
       } catch (error) {
         this.error = 'Erreur lors de la mise en pause du tournoi'
@@ -299,21 +266,159 @@ export const useTournamentStore = defineStore('tournament', {
       }
     },
 
-    // Mettre à jour un tournoi
-    async updateTournament(id, data) {
+    // Reprendre un tournoi après une pause
+    async resumeTournament(id) {
       try {
-        const updated = await tournamentService.updateTournament(id, data)
-        if (Array.isArray(this.tournaments)) {
-          const index = this.tournaments.findIndex(t => t.id === id)
-          if (index !== -1) {
-            this.tournaments[index] = updated
-          }
+        const result = await tournamentService.resumeTournament(id)
+        if (this.currentTournament?.id === id) {
+          await this.fetchTournament(id)
         }
-        return updated
+        return result
       } catch (error) {
-        this.error = 'Erreur lors de la mise à jour du tournoi'
+        this.error = 'Erreur lors de la reprise du tournoi'
+        throw error
+      }
+    },
+
+    // Terminer un tournoi
+    async completeTournament(id) {
+      try {
+        const result = await tournamentService.completeTournament(id)
+        await this.fetchTournaments()
+        return result
+      } catch (error) {
+        this.error = 'Erreur lors de la finalisation du tournoi'
+        throw error
+      }
+    },
+
+    // Gestion du timer et des niveaux
+    async updateTournamentTimer(id, secondsRemaining) {
+      try {
+        const result = await tournamentService.updateTournamentTimer(id, secondsRemaining)
+        return result
+      } catch (error) {
+        this.error = 'Erreur lors de la mise à jour du timer'
+        throw error
+      }
+    },
+
+    async updateTournamentLevel(id, levelNumber) {
+      try {
+        const result = await tournamentService.updateTournamentLevel(id, levelNumber)
+        if (this.currentTournament?.id === id) {
+          await this.fetchTournament(id)
+        }
+        return result
+      } catch (error) {
+        this.error = 'Erreur lors du changement de niveau'
+        throw error
+      }
+    },
+
+    // Gestion des inscriptions
+    async registerPlayer(tournamentId) {
+      try {
+        await tournamentService.registerPlayer(tournamentId)
+        await this.fetchTournament(tournamentId)
+        return true
+      } catch (error) {
+        this.error = 'Erreur lors de l\'inscription'
+        throw error
+      }
+    },
+
+    // Gestion des désistements
+    async unregisterPlayer(tournamentId) {
+      try {
+        await tournamentService.unregisterPlayer(tournamentId)
+        await this.fetchTournament(tournamentId)
+        return true
+      } catch (error) {
+        this.error = 'Erreur lors de la désinscription'
+        throw error
+      }
+    },
+
+    // Gestion des rebuys et éliminations
+    async processRebuy(tournamentId, rebuyData) {
+      try {
+        const result = await tournamentService.processRebuy(tournamentId, rebuyData)
+        if (this.currentTournament?.id === tournamentId) {
+          await this.fetchTournament(tournamentId)
+        }
+        return result
+      } catch (error) {
+        this.error = 'Erreur lors du rebuy'
+        throw error
+      }
+    },
+
+    async eliminatePlayer(tournamentId, eliminationData) {
+      try {
+        const result = await tournamentService.eliminatePlayer(tournamentId, eliminationData)
+        if (this.currentTournament?.id === tournamentId) {
+          await this.fetchTournament(tournamentId)
+        }
+        return result
+      } catch (error) {
+        this.error = 'Erreur lors de l\'élimination du joueur'
+        throw error
+      }
+    },
+
+    // Gestion des tables
+    async rebalanceTables(tournamentId) {
+      try {
+        const result = await tournamentService.rebalanceTables(tournamentId)
+        if (this.currentTournament?.id === tournamentId) {
+          await this.fetchTournament(tournamentId)
+        }
+        return result
+      } catch (error) {
+        this.error = 'Erreur lors du rééquilibrage des tables'
+        throw error
+      }
+    },
+
+    async redrawTables(tournamentId) {
+      try {
+        const result = await tournamentService.redrawTables(tournamentId)
+        if (this.currentTournament?.id === tournamentId) {
+          await this.fetchTournament(tournamentId)
+        }
+        return result
+      } catch (error) {
+        this.error = 'Erreur lors du redraw des tables'
+        throw error
+      }
+    },
+
+    async breakTable(tournamentId, tableIndex) {
+      try {
+        const result = await tournamentService.breakTable(tournamentId, tableIndex)
+        if (this.currentTournament?.id === tournamentId) {
+          await this.fetchTournament(tournamentId)
+        }
+        return result
+      } catch (error) {
+        this.error = 'Erreur lors de la suppression de la table'
+        throw error
+      }
+    },
+
+    // Gestion du jeton d'argile
+    async updateClayTokenHolder(tournamentId, playerId) {
+      try {
+        const result = await tournamentService.updateClayTokenHolder(tournamentId, playerId)
+        if (this.currentTournament?.id === tournamentId) {
+          await this.fetchTournament(tournamentId)
+        }
+        return result
+      } catch (error) {
+        this.error = 'Erreur lors de la mise à jour du détenteur du jeton'
         throw error
       }
     }
   }
-})
+});

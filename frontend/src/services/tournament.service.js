@@ -44,9 +44,22 @@ export const tournamentService = {
     const response = await api.post(`/tournaments/${id}/resume`)
     return response.data
   },
-
+  
   async completeTournament(id) {
     const response = await api.post(`/tournaments/${id}/complete`)
+    return response.data
+  },
+  
+  // Gestion du timer et des niveaux
+  async updateTournamentTimer(id, secondsRemaining) {
+    const response = await api.post(`/tournaments/${id}/timer`, {
+      seconds_remaining: secondsRemaining
+    })
+    return response.data
+  },
+  
+  async updateTournamentLevel(id, levelNumber) {
+    const response = await api.post(`/tournaments/${id}/levels/${levelNumber}`)
     return response.data
   },
 
@@ -60,17 +73,12 @@ export const tournamentService = {
     const response = await api.post(`/tournaments/${tournamentId}/unregister`)
     return response.data
   },
-
-  async updatePlayerPosition(tournamentId, positionData) {
-    const response = await api.post(`/tournaments/${tournamentId}/positions`, positionData)
-    return response.data
-  },
-
+  
   async processRebuy(tournamentId, rebuyData) {
     const response = await api.post(`/tournaments/${tournamentId}/rebuy`, rebuyData)
     return response.data
   },
-
+  
   async eliminatePlayer(tournamentId, eliminationData) {
     const response = await api.post(`/tournaments/${tournamentId}/eliminate`, eliminationData)
     return response.data
@@ -79,6 +87,18 @@ export const tournamentService = {
   // Gestion des tables
   async rebalanceTables(tournamentId) {
     const response = await api.post(`/tournaments/${tournamentId}/tables`)
+    return response.data
+  },
+  
+  async redrawTables(tournamentId) {
+    const response = await api.post(`/tournaments/${tournamentId}/tables/redraw`)
+    return response.data
+  },
+  
+  async breakTable(tournamentId, tableIndex) {
+    const response = await api.post(`/tournaments/${tournamentId}/tables/break`, {
+      table_index: tableIndex
+    })
     return response.data
   },
 
