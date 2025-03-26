@@ -24,8 +24,10 @@ from .websockets import (
     notify_pause_status,
     notify_player_eliminated,
     notify_rebuy,
-    notify_table_update
+    notify_table_update,
+    notify_timer_tick
 )
+
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -361,7 +363,7 @@ async def update_timer(
 
     # Notifier de la mise à jour
     background_tasks.add_task(
-        notify_timer_update,
+        notify_timer_tick,
         tournament_id,
         seconds_remaining,
         tournament.level_duration

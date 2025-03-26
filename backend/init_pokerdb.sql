@@ -36,17 +36,12 @@ CREATE TABLE league_admins (
    FOREIGN KEY (user_id) REFERENCES users(id)
 );
 
--- Table des configurations de tournoi
-CREATE TABLE tournament_configurations (
+-- Modifications: Structure des blindes modifiée
+CREATE TABLE blinds_structures (
    id INT AUTO_INCREMENT PRIMARY KEY,
    name VARCHAR(100) NOT NULL,
-   tournament_type ENUM('JAPT', 'CLASSIQUE', 'MTT') NOT NULL,
-   is_default BOOLEAN DEFAULT FALSE,
-   starting_chips INT NOT NULL,
-   buy_in DECIMAL(10,2) NOT NULL,
-   blinds_structure JSON NOT NULL,
-   rebuy_levels INT DEFAULT 0,
-   payouts_structure JSON NOT NULL,
+   structure JSON NOT NULL,
+   starting_chips INT NOT NULL DEFAULT 20000,  -- Ajouté ici depuis PayoutStructure
    created_by_id INT,
    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
    FOREIGN KEY (created_by_id) REFERENCES users(id)
@@ -60,6 +55,23 @@ CREATE TABLE sound_configurations (
    sounds JSON NOT NULL,
    created_by_id INT,
    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   FOREIGN KEY (created_by_id) REFERENCES users(id)
+);
+
+-- Table des configurations de tournoi (modifiée)
+CREATE TABLE tournament_configurations (
+   id INT AUTO_INCREMENT PRIMARY KEY,
+   name VARCHAR(100) NOT NULL,
+   tournament_type ENUM('JAPT', 'CLASSIQUE', 'MTT') NOT NULL,
+   is_default BOOLEAN DEFAULT FALSE,
+   buy_in DECIMAL(10,2) NOT NULL,
+   rebuy_levels INT DEFAULT 0,  -- Déplacé ici depuis PayoutStructure
+   blinds_structure_id INT NOT NULL,
+   sound_configuration_id INT,
+   created_by_id INT,
+   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   FOREIGN KEY (blinds_structure_id) REFERENCES blinds_structures(id),
+   FOREIGN KEY (sound_configuration_id) REFERENCES sound_configurations(id),
    FOREIGN KEY (created_by_id) REFERENCES users(id)
 );
 
@@ -137,129 +149,85 @@ CREATE TABLE blog_post_images (
 );
 
 -- Insertion des configurations par défaut
-INSERT INTO tournament_configurations (
+-- Structures de blindes par défaut
+INSERT INTO blinds_structures (
     name,
-    is_default,
-    tournament_type,
     starting_chips,
-    buy_in,
-    blinds_structure,
-    rebuy_levels,
-    payouts_structure
+    structure
 ) VALUES
 (
-    'JAPT Standard',
-    TRUE,
-    'JAPT',
-    20000,
-    20.00,
+    'JAPT Standard Blinds',
+    5500,
     '[
-        {"level":1,"small_blind":50,"big_blind":100,"duration":15},
-        {"level":2,"small_blind":100,"big_blind":200,"duration":15},
-        {"level":3,"small_blind":150,"big_blind":300,"duration":15},
-        {"level":4,"small_blind":200,"big_blind":400,"duration":15},
-        {"level":5,"small_blind":300,"big_blind":600,"duration":15},
-        {"level":6,"small_blind":400,"big_blind":800,"duration":15},
-        {"level":7,"small_blind":500,"big_blind":1000,"duration":15},
-        {"level":8,"small_blind":700,"big_blind":1400,"duration":15},
-        {"level":9,"small_blind":1000,"big_blind":2000,"duration":15},
-        {"level":10,"small_blind":1500,"big_blind":3000,"duration":15}
-    ]',
-    6,
-    '[
-        {
-            "num_players":10,
-            "prizes":[
-                {"position":1,"percentage":50},
-                {"position":2,"percentage":30},
-                {"position":3,"percentage":20}
-            ]
-        },
-        {
-            "num_players":6,
-            "prizes":[
-                {"position":1,"percentage":60},
-                {"position":2,"percentage":40}
-            ]
-        }
+        {"level":1,"small_blind":25,"big_blind":25,"duration":20},
+        {"level":2,"small_blind":25,"big_blind":50,"duration":20},
+        {"level":3,"small_blind":50,"big_blind":100,"duration":20},
+        {"level":4,"small_blind":75,"big_blind":150,"duration":20},
+        {"level":5,"small_blind":100,"big_blind":200,"duration":20},
+        {"level":6,"small_blind":150,"big_blind":300,"duration":20},
+        {"level":7,"small_blind":200,"big_blind":400,"duration":20},
+        {"level":8,"small_blind":250,"big_blind":500,"duration":20},
+        {"level":9,"small_blind":300,"big_blind":600,"duration":20},
+        {"level":10,"small_blind":400,"big_blind":800,"duration":20},
+        {"level":11,"small_blind":500,"big_blind":1000,"duration":20},
+        {"level":12,"small_blind":600,"big_blind":1200,"duration":20},
+        {"level":13,"small_blind":800,"big_blind":1600,"duration":20},
+        {"level":14,"small_blind":1000,"big_blind":2000,"duration":20},
+        {"level":15,"small_blind":1500,"big_blind":3000,"duration":20},
+        {"level":16,"small_blind":2000,"big_blind":4000,"duration":99}
     ]'
 ),
 (
-    'MTT Standard',
-    TRUE,
-    'MTT',
-    25000,
-    30.00,
+    'MTT Standard Blinds',
+    8000,
     '[
-        {"level":1,"small_blind":25,"big_blind":50,"duration":20},
-        {"level":2,"small_blind":50,"big_blind":100,"duration":20},
-        {"level":3,"small_blind":75,"big_blind":150,"duration":20},
-        {"level":4,"small_blind":100,"big_blind":200,"duration":20},
-        {"level":5,"small_blind":150,"big_blind":300,"duration":20},
-        {"level":6,"small_blind":200,"big_blind":400,"duration":20},
-        {"level":7,"small_blind":300,"big_blind":600,"duration":20},
-        {"level":8,"small_blind":400,"big_blind":800,"duration":20},
-        {"level":9,"small_blind":500,"big_blind":1000,"duration":20},
-        {"level":10,"small_blind":700,"big_blind":1400,"duration":20}
-    ]',
-    8,
-    '[
-        {
-            "num_players":18,
-            "prizes":[
-                {"position":1,"percentage":45},
-                {"position":2,"percentage":25},
-                {"position":3,"percentage":15},
-                {"position":4,"percentage":10},
-                {"position":5,"percentage":5}
-            ]
-        },
-        {
-            "num_players":12,
-            "prizes":[
-                {"position":1,"percentage":50},
-                {"position":2,"percentage":30},
-                {"position":3,"percentage":20}
-            ]
-        }
+        {"level":1,"small_blind":25,"big_blind":25,"duration":20},
+        {"level":2,"small_blind":25,"big_blind":50,"duration":20},
+        {"level":3,"small_blind":50,"big_blind":100,"duration":20},
+        {"level":4,"small_blind":75,"big_blind":150,"duration":20},
+        {"level":5,"small_blind":100,"big_blind":200,"duration":25},
+        {"level":6,"small_blind":150,"big_blind":300,"duration":25},
+        {"level":7,"small_blind":200,"big_blind":400,"duration":25},
+        {"level":8,"small_blind":250,"big_blind":500,"duration":25},
+        {"level":9,"small_blind":300,"big_blind":600,"duration":30},
+        {"level":10,"small_blind":400,"big_blind":800,"duration":30},
+        {"level":11,"small_blind":500,"big_blind":1000,"duration":30},
+        {"level":12,"small_blind":600,"big_blind":1200,"duration":30},
+        {"level":13,"small_blind":800,"big_blind":1600,"duration":30},
+        {"level":14,"small_blind":1000,"big_blind":2000,"duration":30},
+        {"level":15,"small_blind":1500,"big_blind":3000,"duration":30},
+        {"level":16,"small_blind":2000,"big_blind":4000,"duration":30},
+        {"level":17,"small_blind":2500,"big_blind":5000,"duration":30},
+        {"level":18,"small_blind":3000,"big_blind":6000,"duration":30},
+        {"level":19,"small_blind":4000,"big_blind":8000,"duration":30},
+        {"level":20,"small_blind":5000,"big_blind":10000,"duration":30},
+        {"level":21,"small_blind":7500,"big_blind":15000,"duration":99}
     ]'
 ),
 (
-    'Classique Standard',
-    TRUE,
-    'CLASSIQUE',
-    20000,
-    25.00,
+    'Classique Standard Blinds',
+    5000,
     '[
-        {"level":1,"small_blind":50,"big_blind":100,"duration":15},
-        {"level":2,"small_blind":100,"big_blind":200,"duration":15},
-        {"level":3,"small_blind":150,"big_blind":300,"duration":15},
-        {"level":4,"small_blind":200,"big_blind":400,"duration":15},
-        {"level":5,"small_blind":300,"big_blind":600,"duration":15},
-        {"level":6,"small_blind":400,"big_blind":800,"duration":15},
-        {"level":7,"small_blind":500,"big_blind":1000,"duration":15},
-        {"level":8,"small_blind":700,"big_blind":1400,"duration":15}
-    ]',
-    4,
-    '[
-        {
-            "num_players":8,
-            "prizes":[
-                {"position":1,"percentage":60},
-                {"position":2,"percentage":40}
-            ]
-        },
-        {
-            "num_players":10,
-            "prizes":[
-                {"position":1,"percentage":50},
-                {"position":2,"percentage":30},
-                {"position":3,"percentage":20}
-            ]
-        }
+        {"level":1,"small_blind":25,"big_blind":25,"duration":15},
+        {"level":2,"small_blind":25,"big_blind":50,"duration":15},
+        {"level":3,"small_blind":50,"big_blind":100,"duration":15},
+        {"level":4,"small_blind":75,"big_blind":150,"duration":15},
+        {"level":5,"small_blind":100,"big_blind":200,"duration":15},
+        {"level":6,"small_blind":150,"big_blind":300,"duration":15},
+        {"level":7,"small_blind":200,"big_blind":400,"duration":15},
+        {"level":8,"small_blind":250,"big_blind":500,"duration":15},
+        {"level":9,"small_blind":300,"big_blind":600,"duration":15},
+        {"level":10,"small_blind":400,"big_blind":800,"duration":15},
+        {"level":11,"small_blind":500,"big_blind":1000,"duration":15},
+        {"level":12,"small_blind":600,"big_blind":1200,"duration":15},
+        {"level":13,"small_blind":800,"big_blind":1600,"duration":15},
+        {"level":14,"small_blind":1000,"big_blind":2000,"duration":15},
+        {"level":15,"small_blind":1500,"big_blind":3000,"duration":15},
+        {"level":16,"small_blind":2000,"big_blind":4000,"duration":99}
     ]'
 );
 
+-- Configuration sonore par défaut
 INSERT INTO sound_configurations (
     name,
     is_default,
@@ -274,6 +242,44 @@ INSERT INTO sound_configurations (
         "break_start": "default_break.mp3",
         "break_end": "default_break_end.mp3"
     }'
+);
+
+-- Configurations de tournoi par défaut
+INSERT INTO tournament_configurations (
+    name,
+    tournament_type,
+    is_default,
+    buy_in,
+    rebuy_levels,
+    blinds_structure_id,
+    sound_configuration_id
+) VALUES
+(
+    'JAPT Standard',
+    'JAPT',
+    TRUE,
+    10.00,
+    6,
+    (SELECT id FROM blinds_structures WHERE name = 'JAPT Standard Blinds'),
+    (SELECT id FROM sound_configurations WHERE name = 'Sons par défaut')
+),
+(
+    'MTT Standard',
+    'MTT',
+    TRUE,
+    20.00,
+    8,
+    (SELECT id FROM blinds_structures WHERE name = 'MTT Standard Blinds'),
+    (SELECT id FROM sound_configurations WHERE name = 'Sons par défaut')
+),
+(
+    'Classique Standard',
+    'CLASSIQUE',
+    TRUE,
+    10.00,
+    4,
+    (SELECT id FROM blinds_structures WHERE name = 'Classique Standard Blinds'),
+    (SELECT id FROM sound_configurations WHERE name = 'Sons par défaut')
 );
 
 -- Création des répertoires pour les uploads

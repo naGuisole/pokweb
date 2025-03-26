@@ -2,10 +2,10 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 from typing import Optional, List, Dict
-from ..models.configuration import TournamentConfiguration, SoundConfiguration, BlindsStructure, PayoutStructure
+from ..models.configuration import TournamentConfiguration, SoundConfiguration, BlindsStructure
 from ..schemas.schemas import (
-    TournamentConfigCreate, SoundConfigCreate, BlindsStructureCreate, PayoutStructureCreate,
-    TournamentConfigResponse, SoundConfigResponse, BlindsStructureResponse, PayoutStructureResponse
+    TournamentConfigCreate, SoundConfigCreate, BlindsStructureCreate,
+    TournamentConfigResponse, SoundConfigResponse, BlindsStructureResponse,
 )
 from ..models.models import TournamentType
 
@@ -23,6 +23,7 @@ def create_blinds_structure(
     db_blinds_structure = BlindsStructure(
         name=blinds_structure_data.name,
         structure=blinds_structure_data.structure,
+        starting_chips=blinds_structure_data.starting_chips,  # Ajouté
         created_by_id=user_id
     )
 
@@ -63,6 +64,9 @@ def list_blinds_structures(
     return query.all()
 
 
+
+
+
 def update_blinds_structure(
         db: Session,
         structure_id: int,
@@ -78,6 +82,7 @@ def update_blinds_structure(
     # Mise à jour des attributs
     db_blinds_structure.name = blinds_structure_data.name
     db_blinds_structure.structure = blinds_structure_data.structure
+    db_blinds_structure.starting_chips = blinds_structure_data.starting_chips  # Ajouté
 
     db.commit()
     db.refresh(db_blinds_structure)
@@ -110,108 +115,14 @@ def delete_blinds_structure(
     return True
 
 
-# ---------------------- Fonctions CRUD pour PayoutStructure ----------------------
-
-def create_payout_structure(
-        db: Session,
-        payout_structure_data: PayoutStructureCreate,
-        user_id: Optional[int] = None
-) -> PayoutStructure:
-    """
-    Crée une nouvelle structure de paiements
-    """
-    db_payout_structure = PayoutStructure(
-        name=payout_structure_data.name,
-        starting_chips=payout_structure_data.starting_chips,
-        rebuy_levels=payout_structure_data.rebuy_levels,
-        structure=payout_structure_data.structure,
-        created_by_id=user_id
-    )
-
-    db.add(db_payout_structure)
-    db.commit()
-    db.refresh(db_payout_structure)
-
-    return db_payout_structure
 
 
-def get_payout_structure(db: Session, structure_id: int) -> Optional[PayoutStructure]:
-    """
-    Récupère une structure de paiements par son ID
-    """
-    return db.query(PayoutStructure).filter(PayoutStructure.id == structure_id).first()
 
 
-def list_payout_structures(
-        db: Session,
-        user_id: Optional[int] = None
-) -> List[PayoutStructure]:
-    """
-    Liste les structures de paiements
-    """
-    query = db.query(PayoutStructure)
-
-    if user_id:
-        query = query.filter(
-            or_(
-                PayoutStructure.created_by_id == user_id,
-                PayoutStructure.id.in_(
-                    db.query(TournamentConfiguration.payout_structure_id)
-                    .filter(TournamentConfiguration.is_default == True)
-                )
-            )
-        )
-
-    return query.all()
 
 
-def update_payout_structure(
-        db: Session,
-        structure_id: int,
-        payout_structure_data: PayoutStructureCreate
-) -> Optional[PayoutStructure]:
-    """
-    Met à jour une structure de paiements
-    """
-    db_payout_structure = get_payout_structure(db, structure_id)
-    if not db_payout_structure:
-        return None
-
-    # Mise à jour des attributs
-    db_payout_structure.name = payout_structure_data.name
-    db_payout_structure.starting_chips = payout_structure_data.starting_chips
-    db_payout_structure.rebuy_levels = payout_structure_data.rebuy_levels
-    db_payout_structure.structure = payout_structure_data.structure
-
-    db.commit()
-    db.refresh(db_payout_structure)
-
-    return db_payout_structure
 
 
-def delete_payout_structure(
-        db: Session,
-        structure_id: int
-) -> bool:
-    """
-    Supprime une structure de paiements
-    """
-    db_payout_structure = get_payout_structure(db, structure_id)
-    if not db_payout_structure:
-        return False
-
-    # Vérifier si des configurations utilisent cette structure
-    configs_using_structure = db.query(TournamentConfiguration).filter(
-        TournamentConfiguration.payout_structure_id == structure_id
-    ).count()
-
-    if configs_using_structure > 0:
-        return False  # Ne pas supprimer si utilisée
-
-    db.delete(db_payout_structure)
-    db.commit()
-
-    return True
 
 
 # ---------------------- Fonctions CRUD pour TournamentConfiguration ----------------------
@@ -229,10 +140,6 @@ def create_tournament_configuration(
     if not blinds_structure:
         raise ValueError("Structure de blindes non trouvée")
 
-    payout_structure = get_payout_structure(db, config_data.payout_structure_id)
-    if not payout_structure:
-        raise ValueError("Structure de paiements non trouvée")
-
     sound_config = None
     if config_data.sound_configuration_id:
         sound_config = get_sound_configuration(db, config_data.sound_configuration_id)
@@ -244,8 +151,8 @@ def create_tournament_configuration(
         tournament_type=config_data.tournament_type,
         buy_in=config_data.buy_in,
         is_default=config_data.is_default,
+        rebuy_levels=config_data.rebuy_levels,  # Ajouté
         blinds_structure_id=config_data.blinds_structure_id,
-        payout_structure_id=config_data.payout_structure_id,
         sound_configuration_id=config_data.sound_configuration_id,
         created_by_id=user_id
     )
@@ -314,10 +221,6 @@ def update_tournament_configuration(
     if not blinds_structure:
         raise ValueError("Structure de blindes non trouvée")
 
-    payout_structure = get_payout_structure(db, config_data.payout_structure_id)
-    if not payout_structure:
-        raise ValueError("Structure de paiements non trouvée")
-
     if config_data.sound_configuration_id:
         sound_config = get_sound_configuration(db, config_data.sound_configuration_id)
         if not sound_config:
@@ -328,14 +231,15 @@ def update_tournament_configuration(
     db_config.tournament_type = config_data.tournament_type
     db_config.buy_in = config_data.buy_in
     db_config.is_default = config_data.is_default
+    db_config.rebuy_levels = config_data.rebuy_levels  # Ajouté
     db_config.blinds_structure_id = config_data.blinds_structure_id
-    db_config.payout_structure_id = config_data.payout_structure_id
     db_config.sound_configuration_id = config_data.sound_configuration_id
 
     db.commit()
     db.refresh(db_config)
 
     return db_config
+
 
 
 def delete_tournament_configuration(
@@ -438,6 +342,7 @@ def create_default_blinds_structures(db: Session):
     # Structure pour JAPT
     japt_blinds = {
         "name": "JAPT Standard Blinds",
+        "starting_chips": 5500,
         "structure": [
             {"level": 1, "small_blind": 25, "big_blind": 25, "duration": 20},
             {"level": 2, "small_blind": 25, "big_blind": 50, "duration": 20},
@@ -462,6 +367,7 @@ def create_default_blinds_structures(db: Session):
     # Structure pour MTT
     mtt_blinds = {
         "name": "MTT Standard Blinds",
+        "starting_chips": 8000,
         "structure": [
             {"level": 1, "small_blind": 25, "big_blind": 25, "duration": 20},
             {"level": 2, "small_blind": 25, "big_blind": 50, "duration": 20},
@@ -490,6 +396,7 @@ def create_default_blinds_structures(db: Session):
     # Structure pour Classique
     classic_blinds = {
         "name": "Classique Standard Blinds",
+        "starting_chips": 5000,
         "structure": [
             {"level": 1, "small_blind": 25, "big_blind": 25, "duration": 15},
             {"level": 2, "small_blind": 25, "big_blind": 50, "duration": 15},
@@ -519,161 +426,15 @@ def create_default_blinds_structures(db: Session):
         if not existing:
             db_blinds = BlindsStructure(
                 name=blinds_data["name"],
-                structure=blinds_data["structure"]
+                structure=blinds_data["structure"],
+                starting_chips=blinds_data["starting_chips"]  # Ajouté
             )
             db.add(db_blinds)
 
     db.commit()
 
 
-def create_default_payout_structures(db: Session):
-    """
-    Crée les structures de paiements par défaut si elles n'existent pas
-    """
-    # Structure pour JAPT
-    japt_payout = {
-        "name": "JAPT Standard Payouts",
-        "starting_chips": 20000,
-        "rebuy_levels": 6,
-        "structure": [
-            {
-                "num_players": 1,
-                "prizes": [
-                    {"position": 1, "percentage": 100},
-                ]
-            },
-            {
-                "num_players": 2,
-                "prizes": [
-                    {"position": 1, "percentage": 100},
-                ]
-            },
-            {
-                "num_players": 3,
-                "prizes": [
-                    {"position": 1, "percentage": 100},
-                ]
-            },
-            {
-                "num_players": 4,
-                "prizes": [
-                    {"position": 1, "percentage": 100},
-                ]
-            },
-            {
-                "num_players": 5,
-                "prizes": [
-                    {"position": 1, "percentage": 100},
-                ]
-            },
-            {
-                "num_players": 6,
-                "prizes": [
-                    {"position": 1, "percentage": 100},
-                ]
-            },
-            {
-                "num_players": 7,
-                "prizes": [
-                    {"position": 1, "percentage": 50},
-                    {"position": 2, "percentage": 30},
-                    {"position": 3, "percentage": 20}
-                ]
-            },
-            {
-                "num_players": 8,
-                "prizes": [
-                    {"position": 1, "percentage": 50},
-                    {"position": 2, "percentage": 30},
-                    {"position": 3, "percentage": 20}
-                ]
-            },
-            {
-                "num_players": 9,
-                "prizes": [
-                    {"position": 1, "percentage": 50},
-                    {"position": 2, "percentage": 30},
-                    {"position": 3, "percentage": 20}
-                ]
-            },
-            {
-                "num_players": 10,
-                "prizes": [
-                    {"position": 1, "percentage": 50},
-                    {"position": 2, "percentage": 30},
-                    {"position": 3, "percentage": 20}
-                ]
-            },
-        ]
-    }
 
-    # Structure pour MTT
-    mtt_payout = {
-        "name": "MTT Standard Payouts",
-        "starting_chips": 25000,
-        "rebuy_levels": 8,
-        "structure": [
-            {
-                "num_players": 18,
-                "prizes": [
-                    {"position": 1, "percentage": 45},
-                    {"position": 2, "percentage": 25},
-                    {"position": 3, "percentage": 15},
-                    {"position": 4, "percentage": 10},
-                    {"position": 5, "percentage": 5}
-                ]
-            },
-            {
-                "num_players": 12,
-                "prizes": [
-                    {"position": 1, "percentage": 50},
-                    {"position": 2, "percentage": 30},
-                    {"position": 3, "percentage": 20}
-                ]
-            }
-        ]
-    }
-
-    # Structure pour Classique
-    classic_payout = {
-        "name": "Classique Standard Payouts",
-        "starting_chips": 20000,
-        "rebuy_levels": 4,
-        "structure": [
-            {
-                "num_players": 8,
-                "prizes": [
-                    {"position": 1, "percentage": 60},
-                    {"position": 2, "percentage": 40}
-                ]
-            },
-            {
-                "num_players": 10,
-                "prizes": [
-                    {"position": 1, "percentage": 50},
-                    {"position": 2, "percentage": 30},
-                    {"position": 3, "percentage": 20}
-                ]
-            }
-        ]
-    }
-
-    # Créer les structures si elles n'existent pas
-    for payout_data in [japt_payout, mtt_payout, classic_payout]:
-        existing = db.query(PayoutStructure).filter(
-            PayoutStructure.name == payout_data["name"]
-        ).first()
-
-        if not existing:
-            db_payout = PayoutStructure(
-                name=payout_data["name"],
-                starting_chips=payout_data["starting_chips"],
-                rebuy_levels=payout_data["rebuy_levels"],
-                structure=payout_data["structure"]
-            )
-            db.add(db_payout)
-
-    db.commit()
 
 
 def create_default_sound_configuration(db: Session):
@@ -714,7 +475,6 @@ def create_default_configurations(db: Session):
     """
     # Créer les structures de base
     create_default_blinds_structures(db)
-    create_default_payout_structures(db)
     sound_config = create_default_sound_configuration(db)
 
     # Récupérer les structures créées
@@ -730,45 +490,33 @@ def create_default_configurations(db: Session):
         BlindsStructure.name == "Classique Standard Blinds"
     ).first()
 
-    japt_payout = db.query(PayoutStructure).filter(
-        PayoutStructure.name == "JAPT Standard Payouts"
-    ).first()
-
-    mtt_payout = db.query(PayoutStructure).filter(
-        PayoutStructure.name == "MTT Standard Payouts"
-    ).first()
-
-    classic_payout = db.query(PayoutStructure).filter(
-        PayoutStructure.name == "Classique Standard Payouts"
-    ).first()
-
     # Configurations de tournoi
     tournament_configs = [
         {
             "name": "JAPT Standard",
             "tournament_type": "JAPT",
-            "buy_in": 20.0,
+            "buy_in": 10.0,
             "is_default": True,
+            "rebuy_levels": 6,
             "blinds_structure_id": japt_blinds.id if japt_blinds else None,
-            "payout_structure_id": japt_payout.id if japt_payout else None,
             "sound_configuration_id": sound_config.id if sound_config else None
         },
         {
             "name": "MTT Standard",
             "tournament_type": "MTT",
-            "buy_in": 30.0,
+            "buy_in": 20.0,
             "is_default": True,
+            "rebuy_levels": 8,
             "blinds_structure_id": mtt_blinds.id if mtt_blinds else None,
-            "payout_structure_id": mtt_payout.id if mtt_payout else None,
             "sound_configuration_id": sound_config.id if sound_config else None
         },
         {
             "name": "Classique Standard",
             "tournament_type": "CLASSIQUE",
-            "buy_in": 25.0,
+            "buy_in": 10.0,
             "is_default": True,
+            "rebuy_levels": 4,
             "blinds_structure_id": classic_blinds.id if classic_blinds else None,
-            "payout_structure_id": classic_payout.id if classic_payout else None,
             "sound_configuration_id": sound_config.id if sound_config else None
         }
     ]
@@ -776,7 +524,7 @@ def create_default_configurations(db: Session):
     # Créer les configurations si elles n'existent pas
     for config_data in tournament_configs:
         # Vérifier que tous les IDs nécessaires sont présents
-        if None in [config_data["blinds_structure_id"], config_data["payout_structure_id"]]:
+        if not config_data["blinds_structure_id"]:
             continue
 
         existing = db.query(TournamentConfiguration).filter(

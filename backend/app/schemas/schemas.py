@@ -3,7 +3,7 @@ from pydantic import BaseModel, EmailStr, Field, validator, field_validator
 from typing import Optional, Dict, List
 from datetime import datetime
 
-from app.models.models import TournamentType, TournamentStatus
+from ..models.models import TournamentType, TournamentStatus
 
 
 # User schemas
@@ -324,6 +324,7 @@ class BlindLevel(BaseModel):
 class BlindsStructureBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
     structure: List[Dict]  # [{level, small_blind, big_blind, duration}]
+    starting_chips: int = Field(..., gt=0)  # Ajouté ici depuis PayoutStructure
 
     @field_validator('structure')
     def validate_structure(cls, v):
@@ -332,7 +333,7 @@ class BlindsStructureBase(BaseModel):
             raise ValueError("La structure des blindes ne peut pas être vide")
 
         for level in v:
-            if level["big_blind"] < level["small_blind"] :
+            if level["big_blind"] < level["small_blind"]:
                 raise ValueError(f"La grosse blinde doit être supérieure à la petite blinde au niveau {level['level']}")
             if level["duration"] <= 0:
                 raise ValueError(f"La durée doit être positive au niveau {level['level']}")
@@ -374,50 +375,6 @@ class PayoutEntry(BaseModel):
     prizes: List[Dict]  # [{position, percentage}]
 
 
-class PayoutStructureBase(BaseModel):
-    name: str = Field(..., min_length=3, max_length=100)
-    starting_chips: int = Field(..., gt=0)
-    rebuy_levels: int = Field(0, ge=0)
-    structure: List[Dict]  # [{num_players, prizes: [{position, percentage}]}]
-
-    @field_validator('structure')
-    def validate_structure(cls, v):
-        """Valide la structure des paiements"""
-        if not v:
-            raise ValueError("La structure des paiements ne peut pas être vide")
-
-        for payout in v:
-            if "prizes" not in payout or "num_players" not in payout:
-                raise ValueError("Chaque entrée doit contenir 'num_players' et 'prizes'")
-
-            total_percentage = sum(prize["percentage"] for prize in payout["prizes"])
-            if not (99.9 <= total_percentage <= 100.1):  # Allow for small floating point errors
-                raise ValueError(
-                    f"La somme des pourcentages doit être égale à 100 pour {payout['num_players']} joueurs")
-
-            positions = [prize["position"] for prize in payout["prizes"]]
-            if len(positions) != len(set(positions)):
-                raise ValueError("Les positions doivent être uniques")
-            if min(positions) < 1:
-                raise ValueError("Les positions doivent être positives")
-            if max(positions) > payout["num_players"]:
-                raise ValueError("Les positions ne peuvent pas dépasser le nombre de joueurs")
-
-        return v
-
-
-class PayoutStructureCreate(PayoutStructureBase):
-    pass
-
-
-class PayoutStructureResponse(PayoutStructureBase):
-    id: int
-    created_by_id: Optional[int]
-    created_at: datetime
-
-    class Config:
-        from_attributes = True
-
 
 class SoundConfigBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
@@ -450,13 +407,13 @@ class TournamentConfigBase(BaseModel):
     tournament_type: str = Field(..., pattern='^(JAPT|CLASSIQUE|MTT)$')
     buy_in: float = Field(..., gt=0)
     is_default: bool = False
+    rebuy_levels: int = Field(0, ge=0)  # Ajouté ici depuis PayoutStructure
 
 class TournamentConfigCreate(TournamentConfigBase):
     """
     Données pour la création d'une configuration de tournoi
     """
     blinds_structure_id: int
-    payout_structure_id: int
     sound_configuration_id: Optional[int] = None
 
 class TournamentConfigResponse(TournamentConfigBase):
@@ -465,7 +422,6 @@ class TournamentConfigResponse(TournamentConfigBase):
     """
     id: int
     blinds_structure: BlindsStructureResponse
-    payout_structure: PayoutStructureResponse
     sound_configuration: Optional[SoundConfigResponse]
     created_by_id: Optional[int]
     created_at: datetime

@@ -12,7 +12,6 @@ from ..crud import configuration as config_crud
 from ..schemas.schemas import (
     TournamentConfigCreate, TournamentConfigResponse,
     BlindsStructureCreate, BlindsStructureResponse,
-    PayoutStructureCreate, PayoutStructureResponse,
     SoundConfigCreate, SoundConfigResponse
 )
 from ..models.models import TournamentType
@@ -139,117 +138,6 @@ async def delete_blinds_structure(
     return {"status": "success", "message": "Structure de blindes supprimée"}
 
 
-# ---------------------- Routes pour les structures de paiements ----------------------
-
-@router.post("/payouts", response_model=PayoutStructureResponse)
-async def create_payout_structure(
-        structure: PayoutStructureCreate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """
-    Crée une nouvelle structure de paiements
-    """
-    try:
-        return config_crud.create_payout_structure(db, structure, current_user.id)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
-
-@router.get("/payouts", response_model=List[PayoutStructureResponse])
-async def get_payout_structures(
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """
-    Récupère la liste des structures de paiements
-    """
-    return config_crud.list_payout_structures(db, current_user.id)
-
-
-@router.get("/payouts/{structure_id}", response_model=PayoutStructureResponse)
-async def get_payout_structure(
-        structure_id: int,
-        db: Session = Depends(get_db)
-):
-    """
-    Récupère une structure de paiements par son ID
-    """
-    structure = config_crud.get_payout_structure(db, structure_id)
-    if not structure:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Structure de paiements non trouvée"
-        )
-    return structure
-
-
-@router.put("/payouts/{structure_id}", response_model=PayoutStructureResponse)
-async def update_payout_structure(
-        structure_id: int,
-        structure: PayoutStructureCreate,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """
-    Met à jour une structure de paiements
-    """
-    db_structure = config_crud.get_payout_structure(db, structure_id)
-    if not db_structure:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Structure de paiements non trouvée"
-        )
-
-    if db_structure.created_by_id != current_user.id and not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Vous ne pouvez modifier que vos propres structures"
-        )
-
-    try:
-        return config_crud.update_payout_structure(db, structure_id, structure)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
-
-@router.delete("/payouts/{structure_id}")
-async def delete_payout_structure(
-        structure_id: int,
-        db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_user)
-):
-    """
-    Supprime une structure de paiements
-    """
-    db_structure = config_crud.get_payout_structure(db, structure_id)
-    if not db_structure:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Structure de paiements non trouvée"
-        )
-
-    if db_structure.created_by_id != current_user.id and not current_user.is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Vous ne pouvez supprimer que vos propres structures"
-        )
-
-    result = config_crud.delete_payout_structure(db, structure_id)
-    if not result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Impossible de supprimer la structure (elle est peut-être utilisée par des configurations)"
-        )
-
-    return {"status": "success", "message": "Structure de paiements supprimée"}
-
 
 # ---------------------- Routes pour les configurations de tournoi ----------------------
 
@@ -274,6 +162,7 @@ async def create_tournament_config(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
 
 
 @router.get("/tournament", response_model=List[TournamentConfigResponse])

@@ -28,6 +28,32 @@ export const configurationService = {
     return response.data
   },
 
+  // Structures de blindes
+  async getBlindsStructures() {
+    const response = await api.get('/configurations/blinds')
+    return response.data
+  },
+
+  async getBlindsStructure(id) {
+    const response = await api.get(`/configurations/blinds/${id}`)
+    return response.data
+  },
+
+  async createBlindsStructure(structureData) {
+    const response = await api.post('/configurations/blinds', structureData)
+    return response.data
+  },
+
+  async updateBlindsStructure(id, structureData) {
+    const response = await api.put(`/configurations/blinds/${id}`, structureData)
+    return response.data
+  },
+
+  async deleteBlindsStructure(id) {
+    const response = await api.delete(`/configurations/blinds/${id}`)
+    return response.data
+  },
+
   // Configurations sonores
   async getSoundConfigs() {
     const response = await api.get('/configurations/sound')

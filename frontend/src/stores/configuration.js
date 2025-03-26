@@ -1,4 +1,4 @@
-// src/stores/configuration.js
+// src/stores/configuration.js (modifications)
 import { defineStore } from 'pinia'
 import { configurationService } from '@/services/configuration.service'
 

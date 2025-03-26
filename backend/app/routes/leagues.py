@@ -19,13 +19,27 @@ async def create_league(
         current_user: User = Depends(get_current_user),
         db: Session = Depends(get_db)
 ):
-    print("création ligue")
-
     """Crée une nouvelle ligue avec l'utilisateur courant comme admin"""
-    # La fonction create_league ajoute déjà l'utilisateur courant comme admin
+    # Create the league
     db_league = league_crud.create_league(db, league, current_user.id)
 
-    return db_league
+    # Get the league with members
+    league_data = league_crud.get_league_with_members(db, db_league.id)
+
+    # Get admin IDs separately
+    admin_records = db.query(LeagueAdmin).filter(LeagueAdmin.league_id == db_league.id).all()
+    admin_ids = [admin.user_id for admin in admin_records]
+
+    # Create a response dictionary that matches LeagueResponse schema
+    response = {
+        "id": league_data.id,
+        "name": league_data.name,
+        "description": league_data.description,
+        "members": league_data.members,
+        "admins": admin_ids  # List of IDs instead of User objects
+    }
+
+    return response
 
 
 @router.get("/", response_model=List[LeagueResponse])
