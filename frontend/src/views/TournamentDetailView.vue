@@ -267,7 +267,7 @@
                             <v-icon icon="mdi-clock-outline"></v-icon>
                           </template>
                           <v-list-item-title>Temps écoulé</v-list-item-title>
-                          <v-list-item-subtitle class="text-right">{{ elapsedTime }}</v-list-item-subtitle>
+                          <v-list-item-subtitle class="text-right">{{ elapsedTimeRef }}</v-list-item-subtitle>
                         </v-list-item>
 
                         <v-list-item>
@@ -275,7 +275,7 @@
                             <v-icon icon="mdi-clock"></v-icon>
                           </template>
                           <v-list-item-title>Heure actuelle</v-list-item-title>
-                          <v-list-item-subtitle class="text-right">{{ currentTime }}</v-list-item-subtitle>
+                          <v-list-item-subtitle class="text-right">{{ currentTimeRef }}</v-list-item-subtitle>
                         </v-list-item>
                       </v-list>
                     </v-card>
@@ -491,6 +491,9 @@ const lastUpdateTime = ref(Date.now())
 const timerInterval = ref(null)
 const activePlayers = ref([])
 const eliminatedPlayers = ref([])
+const elapsedTimeRef = ref('00:00:00')
+const currentTimeRef = ref(format(new Date(), 'HH:mm:ss'))
+const clockInterval = ref(null)
 
 // Snackbar pour les notifications
 const snackbar = ref({
@@ -630,23 +633,6 @@ const averageStack = computed(() => {
   return formatNumber(totalChips / activePlayers.value.length)
 })
 
-const elapsedTime = computed(() => {
-  if (!tournament.value?.start_time) return '00:00:00'
-  const startTime = new Date(tournament.value.start_time)
-  const now = new Date()
-  const elapsedMs = now - startTime
-
-  const hours = Math.floor(elapsedMs / 3600000)
-  const minutes = Math.floor((elapsedMs % 3600000) / 60000)
-  const seconds = Math.floor((elapsedMs % 60000) / 1000)
-
-  return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-})
-
-const currentTime = computed(() => {
-  return format(new Date(), 'HH:mm:ss')
-})
-
 const prizeDistribution = computed(() => {
   if (!tournament.value?.prize_pool) return []
 
@@ -709,6 +695,40 @@ const getStatusLabel = (status) => {
     'COMPLETED': 'Terminé'
   }
   return labels[status] || status
+}
+
+// Fonction de mise à jour des temps
+const updateTimes = () => {
+  // Mettre à jour l'heure actuelle
+  currentTimeRef.value = format(new Date(), 'HH:mm:ss')
+  
+  // Mettre à jour le temps écoulé si le tournoi est démarré
+  if (tournament.value?.start_time) {
+    const startTime = new Date(tournament.value.start_time)
+    const now = new Date()
+    const elapsedMs = now - startTime
+
+    const hours = Math.floor(elapsedMs / 3600000)
+    const minutes = Math.floor((elapsedMs % 3600000) / 60000)
+    const seconds = Math.floor((elapsedMs % 60000) / 1000)
+
+    elapsedTimeRef.value = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+  }
+}
+
+// Commencer la mise à jour des temps
+const startClock = () => {
+  stopClock() // S'assurer qu'il n'y a pas déjà un intervalle en cours
+  updateTimes() // Première mise à jour immédiate
+  clockInterval.value = setInterval(updateTimes, 1000)
+}
+
+// Arrêter la mise à jour des temps
+const stopClock = () => {
+  if (clockInterval.value) {
+    clearInterval(clockInterval.value)
+    clockInterval.value = null
+  }
 }
 
 // Fonction pour trouver le gagnant du tournoi parmi les participations
@@ -1431,6 +1451,9 @@ onMounted(async () => {
       if (!isPaused.value) {
         startTimer()
       }
+
+      // Pour la mise à jour de l'heure actuelle
+      startClock()
     }
   } catch (error) {
     console.error('Error loading tournament:', error)
@@ -1444,6 +1467,7 @@ onUnmounted(() => {
   // Clean up timers and WebSocket
   stopTimer()
   teardownWebSocket()
+  stopClock()
   console.log('Component unmounted, resources cleaned up')
 })
 
