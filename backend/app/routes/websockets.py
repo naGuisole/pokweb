@@ -179,14 +179,15 @@ async def notify_table_update(tournament_id: int, tables_state: dict):
         {"tables_state": tables_state}
     )
 
-# Ajouter la fonction de notification de timer (envoyée périodiquement)
-async def notify_timer_tick(tournament_id: int, seconds_remaining: int, total_seconds: int):
+# Fonction de notification de timer (envoyée périodiquement)
+async def notify_timer_tick(tournament_id: int, seconds_remaining: int, total_seconds: int, is_paused: bool = False):
     await broadcast_tournament_event(
         tournament_id,
         "timer_tick",
         {
             "seconds_remaining": seconds_remaining,
             "total_seconds": total_seconds,
-            "percentage": (total_seconds - seconds_remaining) / total_seconds * 100
+            "percentage": (total_seconds - seconds_remaining) / total_seconds * 100 if total_seconds > 0 else 0,
+            "paused": is_paused
         }
     )
