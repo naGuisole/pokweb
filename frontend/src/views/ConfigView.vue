@@ -262,19 +262,20 @@
             ></v-select>
 
             <v-select
-              v-model="tournamentConfigData.payout_structure_id"
-              :items="payoutStructuresSelectItems"
-              label="Structure de paiements"
-              :rules="[v => !!v || 'La structure de paiements est requise']"
-              required
-            ></v-select>
-
-            <v-select
               v-model="tournamentConfigData.sound_configuration_id"
               :items="soundConfigsSelectItems"
               label="Configuration sonore"
               clearable
             ></v-select>
+            
+            <v-text-field
+              v-model.number="tournamentConfigData.rebuy_levels"
+              label="Niveaux de rebuy autorisés"
+              type="number"
+              min="0"
+              hint="Nombre de niveaux pendant lesquels les rebuys sont autorisés (0 = pas de rebuy)"
+              persistent-hint
+            ></v-text-field>
           </v-form>
         </v-card-text>
         <v-card-actions>
@@ -310,6 +311,15 @@
               v-model="blindsStructureData.name"
               label="Nom de la structure"
               :rules="[v => !!v || 'Le nom est requis']"
+              required
+            ></v-text-field>
+            
+            <v-text-field
+              v-model.number="blindsStructureData.starting_chips"
+              label="Jetons de départ"
+              type="number"
+              min="1000"
+              :rules="[v => !!v || 'Le nombre de jetons est requis', v => v >= 1000 || 'Minimum 1000 jetons']"
               required
             ></v-text-field>
 
@@ -488,6 +498,9 @@
       <v-card>
         <v-card-title>{{ selectedBlindsStructure ? selectedBlindsStructure.name : 'Structure de blindes' }}</v-card-title>
         <v-card-text>
+          <div v-if="selectedBlindsStructure" class="text-body-1 mb-4">
+            Jetons de départ: <strong>{{ selectedBlindsStructure.starting_chips }}</strong>
+          </div>
           <v-data-table
             v-if="selectedBlindsStructure && selectedBlindsStructure.structure"
             :headers="[
@@ -548,7 +561,6 @@ const configStore = useConfigurationStore()
 const { 
   tournamentConfigs,
   blindsStructures,
-  payoutStructures, 
   soundConfigs
 } = storeToRefs(configStore)
 
@@ -588,14 +600,15 @@ const tournamentConfigData = ref({
   tournament_type: 'JAPT',
   buy_in: 20,
   blinds_structure_id: null,
-  payout_structure_id: null,
   sound_configuration_id: null,
-  is_default: false
+  is_default: false,
+  rebuy_levels: 0
 })
 
 const blindsStructureData = ref({
   name: '',
-  structure: []
+  structure: [],
+  starting_chips: 5000
 })
 
 const soundConfigData = ref({
@@ -626,14 +639,6 @@ const blindsStructuresSelectItems = computed(() => {
   }));
 });
 
-const payoutStructuresSelectItems = computed(() => {
-  if (!payoutStructures.value) return [];
-  return payoutStructures.value.map(ps => ({
-    title: ps.name,
-    value: ps.id
-  }));
-});
-
 const soundConfigsSelectItems = computed(() => {
   if (!soundConfigs.value) return [];
   return soundConfigs.value.map(sc => ({
@@ -655,6 +660,7 @@ const tournamentHeaders = [
 
 const blindsHeaders = [
   { title: 'Nom', key: 'name' },
+  { title: 'Jetons de départ', key: 'starting_chips' },
   { title: 'Niveaux', key: 'levels' },
   { title: 'Actions', key: 'actions', sortable: false }
 ]
@@ -681,13 +687,11 @@ const loadConfigurations = async () => {
     await Promise.all([
       configStore.fetchTournamentConfigs(),
       configStore.fetchBlindsStructures(),
-      configStore.fetchPayoutStructures(),
       configStore.fetchSoundConfigs()
     ])
     console.log('Configurations chargées:', {
       tournamentConfigs: tournamentConfigs.value,
       blindsStructures: blindsStructures.value,
-      payoutStructures: payoutStructures.value,
       soundConfigs: soundConfigs.value
     })
   } catch (error) {
@@ -732,9 +736,9 @@ const editTournamentConfig = (config) => {
     tournament_type: config.tournament_type,
     buy_in: config.buy_in,
     blinds_structure_id: config.blinds_structure_id,
-    payout_structure_id: config.payout_structure_id,
     sound_configuration_id: config.sound_configuration_id,
-    is_default: config.is_default
+    is_default: config.is_default,
+    rebuy_levels: config.rebuy_levels || 0
   }
   showTournamentConfigDialog.value = true
 }
@@ -788,6 +792,11 @@ const saveBlindsStructure = async () => {
     showError('Ajoutez au moins un niveau de blindes')
     return
   }
+  
+  if (!blindsStructureData.value.starting_chips || blindsStructureData.value.starting_chips < 1000) {
+    showError('Le nombre de jetons de départ doit être d\'au moins 1000')
+    return
+  }
 
   savingBlindsStructure.value = true
   try {
@@ -814,7 +823,8 @@ const editBlindsStructure = (structure) => {
   editingBlindsStructure.value = structure
   blindsStructureData.value = {
     name: structure.name,
-    structure: [...structure.structure]
+    structure: [...structure.structure],
+    starting_chips: structure.starting_chips || 5000
   }
   showBlindsStructureDialog.value = true
 }

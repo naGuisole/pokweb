@@ -1,10 +1,11 @@
-// src/stores/configuration.js (modifications)
+// src/stores/configuration.js (corrigé)
 import { defineStore } from 'pinia'
 import { configurationService } from '@/services/configuration.service'
 
 export const useConfigurationStore = defineStore('configuration', {
   state: () => ({
     tournamentConfigs: [],
+    blindsStructures: [], // Ajout de cette propriété manquante
     soundConfigs: [],
     loading: false,
     error: null
@@ -78,6 +79,64 @@ export const useConfigurationStore = defineStore('configuration', {
         this.tournamentConfigs = this.tournamentConfigs.filter(c => c.id !== id)
       } catch (error) {
         this.error = error.response?.data?.detail || 'Erreur lors de la suppression de la configuration'
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // Structures de blindes
+    async fetchBlindsStructures() {
+      this.loading = true
+      try {
+        const structures = await configurationService.getBlindsStructures()
+        this.blindsStructures = structures
+      } catch (error) {
+        this.error = error.response?.data?.detail || 'Erreur lors du chargement des structures de blindes'
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async createBlindsStructure(structureData) {
+      this.loading = true
+      try {
+        const newStructure = await configurationService.createBlindsStructure(structureData)
+        this.blindsStructures.push(newStructure)
+        return newStructure
+      } catch (error) {
+        this.error = error.response?.data?.detail || 'Erreur lors de la création de la structure de blindes'
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async updateBlindsStructure(id, structureData) {
+      this.loading = true
+      try {
+        const updatedStructure = await configurationService.updateBlindsStructure(id, structureData)
+        const index = this.blindsStructures.findIndex(s => s.id === id)
+        if (index !== -1) {
+          this.blindsStructures[index] = updatedStructure
+        }
+        return updatedStructure
+      } catch (error) {
+        this.error = error.response?.data?.detail || 'Erreur lors de la mise à jour de la structure de blindes'
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async deleteBlindsStructure(id) {
+      this.loading = true
+      try {
+        await configurationService.deleteBlindsStructure(id)
+        this.blindsStructures = this.blindsStructures.filter(s => s.id !== id)
+      } catch (error) {
+        this.error = error.response?.data?.detail || 'Erreur lors de la suppression de la structure de blindes'
         throw error
       } finally {
         this.loading = false
