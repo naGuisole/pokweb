@@ -304,6 +304,7 @@ class RebuyRequest(BaseModel):
     amount: float
 
 
+# Schémas pour BlindLevel
 class BlindLevel(BaseModel):
     """
     Structure d'un niveau de blindes
@@ -315,9 +316,46 @@ class BlindLevel(BaseModel):
 
     @field_validator('big_blind')
     def validate_big_blind(cls, v, values):
-        if 'small_blind' in values and v < values['big_blind']:
-            raise ValueError("La grosse blinde doit être supérieure à la petite blinde")
+        if 'small_blind' in values.data and v < values.data['small_blind']:
+            raise ValueError("La grosse blinde doit supérieure à la petite blinde")
         return v
+
+# Schémas pour BlindsStructure
+class BlindsStructureBase(BaseModel):
+    name: str = Field(..., min_length=3, max_length=100)
+    structure: List[Dict]  # [{level, small_blind, big_blind, duration}]
+
+    @field_validator('structure')
+    def validate_structure(cls, v):
+        """Valide la structure des blindes"""
+        if not v:
+            raise ValueError("La structure des blindes ne peut pas être vide")
+
+        for level in v:
+            if level["big_blind"] < level["small_blind"] :
+                raise ValueError(f"La grosse blinde doit être supérieure à la petite blinde au niveau {level['level']}")
+            if level["duration"] <= 0:
+                raise ValueError(f"La durée doit être positive au niveau {level['level']}")
+
+        # Vérifier que les niveaux sont ordonnés
+        for i in range(1, len(v)):
+            if v[i]["level"] <= v[i - 1]["level"]:
+                raise ValueError("Les niveaux doivent être strictement croissants")
+            if v[i]["small_blind"] <= v[i - 1]["small_blind"] and v[i]["big_blind"] <= v[i - 1]["big_blind"]:
+                raise ValueError("Les blindes doivent augmenter à chaque niveau")
+
+        return v
+
+class BlindsStructureCreate(BlindsStructureBase):
+    pass
+
+class BlindsStructureResponse(BlindsStructureBase):
+    id: int
+    created_by_id: Optional[int]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class PayoutPrize(BaseModel):
@@ -328,92 +366,58 @@ class PayoutPrize(BaseModel):
     percentage: float
 
 
-
-class PayoutStructure(BaseModel):
+class PayoutEntry(BaseModel):
     """
     Structure de paiement pour un nombre de joueurs donné
     """
     num_players: int
-    prizes: List[PayoutPrize]
+    prizes: List[Dict]  # [{position, percentage}]
 
-    @field_validator('prizes')
-    def validate_total_percentage(cls, v):
-        total = sum(prize.percentage for prize in v)
-        if not 99.9 <= total <= 100.1:  # Allow small floating point errors
-            raise ValueError("La somme des pourcentages doit être égale à 100")
-        return v
 
-class TournamentConfigBase(BaseModel):
+class PayoutStructureBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
-    tournament_type: str = Field(..., pattern='^(JAPT|CLASSIQUE|MTT)$')
     starting_chips: int = Field(..., gt=0)
-    buy_in: float = Field(..., gt=0)
-    blinds_structure: List[BlindLevel]
-    rebuy_levels: int = Field(..., ge=0)
-    payouts_structure: List[PayoutStructure]
-    is_default: bool = False
+    rebuy_levels: int = Field(0, ge=0)
+    structure: List[Dict]  # [{num_players, prizes: [{position, percentage}]}]
 
-class TournamentConfigCreate(TournamentConfigBase):
-
-    @field_validator('blinds_structure')
-    def validate_blinds_structure(cls, v):
-        """Valide la structure des blindes"""
-        if not v:
-            raise ValueError("La structure des blindes ne peut pas être vide")
-
-        for level in v:
-            if level.big_blind != level.small_blind * 2:
-                raise ValueError(f"La grosse blinde doit être le double de la petite blinde au niveau {level.level}")
-            if level.duration <= 0:
-                raise ValueError(f"La durée doit être positive au niveau {level.level}")
-
-        # Vérifier que les niveaux sont ordonnés
-        for i in range(1, len(v)):
-            if v[i].level <= v[i - 1].level:
-                raise ValueError("Les niveaux doivent être strictement croissants")
-            if v[i].small_blind <= v[i - 1].small_blind:
-                raise ValueError("Les blindes doivent augmenter à chaque niveau")
-
-        return v
-
-    @field_validator('payouts_structure')
-    def validate_payouts_structure(cls, v):
+    @field_validator('structure')
+    def validate_structure(cls, v):
         """Valide la structure des paiements"""
         if not v:
             raise ValueError("La structure des paiements ne peut pas être vide")
 
         for payout in v:
-            total_percentage = sum(prize.percentage for prize in payout.prizes)
-            if not (99.9 <= total_percentage <= 100.1):  # Allow for small floating point errors
-                raise ValueError(f"La somme des pourcentages doit être égale à 100 pour {payout.num_players} joueurs")
+            if "prizes" not in payout or "num_players" not in payout:
+                raise ValueError("Chaque entrée doit contenir 'num_players' et 'prizes'")
 
-            positions = [prize.position for prize in payout.prizes]
+            total_percentage = sum(prize["percentage"] for prize in payout["prizes"])
+            if not (99.9 <= total_percentage <= 100.1):  # Allow for small floating point errors
+                raise ValueError(
+                    f"La somme des pourcentages doit être égale à 100 pour {payout['num_players']} joueurs")
+
+            positions = [prize["position"] for prize in payout["prizes"]]
             if len(positions) != len(set(positions)):
                 raise ValueError("Les positions doivent être uniques")
             if min(positions) < 1:
                 raise ValueError("Les positions doivent être positives")
-            if max(positions) > payout.num_players:
+            if max(positions) > payout["num_players"]:
                 raise ValueError("Les positions ne peuvent pas dépasser le nombre de joueurs")
 
         return v
+
+
+class PayoutStructureCreate(PayoutStructureBase):
     pass
 
 
-class TournamentConfigResponse(BaseModel):
+class PayoutStructureResponse(PayoutStructureBase):
     id: int
-    name: str
-    tournament_type: str
-    is_default: bool
-    starting_chips: int
-    buy_in: float
-    blinds_structure: List[dict]
-    rebuy_levels: int
-    payouts_structure: List[dict]
-    created_by_id: Optional[int] = None
+    created_by_id: Optional[int]
     created_at: datetime
 
     class Config:
         from_attributes = True
+
 
 class SoundConfigBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
@@ -438,6 +442,36 @@ class SoundConfigResponse(SoundConfigBase):
     class Config:
         from_attributes = True
 
+class TournamentConfigBase(BaseModel):
+    """
+    Informations de base d'une configuration de tournoi
+    """
+    name: str = Field(..., min_length=3, max_length=100)
+    tournament_type: str = Field(..., pattern='^(JAPT|CLASSIQUE|MTT)$')
+    buy_in: float = Field(..., gt=0)
+    is_default: bool = False
+
+class TournamentConfigCreate(TournamentConfigBase):
+    """
+    Données pour la création d'une configuration de tournoi
+    """
+    blinds_structure_id: int
+    payout_structure_id: int
+    sound_configuration_id: Optional[int] = None
+
+class TournamentConfigResponse(TournamentConfigBase):
+    """
+    Réponse complète pour une configuration de tournoi
+    """
+    id: int
+    blinds_structure: BlindsStructureResponse
+    payout_structure: PayoutStructureResponse
+    sound_configuration: Optional[SoundConfigResponse]
+    created_by_id: Optional[int]
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 

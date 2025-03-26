@@ -169,6 +169,8 @@ class User(Base):
 
     # Relations configs
     tournament_configurations = relationship("TournamentConfiguration", back_populates="created_by")
+    blinds_structures = relationship("BlindsStructure", back_populates="created_by")
+    payout_structures = relationship("PayoutStructure", back_populates="created_by")
     sound_configurations = relationship("SoundConfiguration", back_populates="created_by")
 
     blog_posts = relationship("BlogPost", back_populates="author")
