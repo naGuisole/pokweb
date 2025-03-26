@@ -323,6 +323,8 @@ const tournamentConfigValid = ref(false)
 const soundConfigValid = ref(false)
 const showTournamentConfigDialog = ref(false)
 const showSoundConfigDialog = ref(false)
+const loadingTournamentConfigs = ref(false)
+const loadingSoundConfigs = ref(false)
 
 // Formulaires et données d'édition
 const tournamentConfigForm = ref(null)
@@ -378,6 +380,8 @@ const tournamentTypes = [
 
 // Méthodes pour la gestion des configurations de tournoi
 const loadConfigurations = async () => {
+  loadingTournamentConfigs.value = true
+  loadingSoundConfigs.value = true
   try {
     await Promise.all([
       configStore.fetchTournamentConfigs(),
@@ -385,12 +389,16 @@ const loadConfigurations = async () => {
     ])
   } catch (error) {
     showError('Erreur lors du chargement des configurations')
+  } finally {
+    loadingTournamentConfigs.value = false
+    loadingSoundConfigs.value = false
   }
 }
 
 const saveTournamentConfig = async () => {
   if (!tournamentConfigForm.value.validate()) return
 
+  loadingTournamentConfigs.value = true
   try {
     if (editingTournamentConfig.value) {
       await configStore.updateTournamentConfig(
@@ -405,6 +413,8 @@ const saveTournamentConfig = async () => {
     showTournamentConfigDialog.value = false
   } catch (error) {
     showError('Erreur lors de l\'enregistrement de la configuration')
+  } finally {
+    loadingTournamentConfigs.value = false
   }
 }
 
@@ -416,11 +426,14 @@ const editTournamentConfig = (config) => {
 
 const deleteTournamentConfig = async (config) => {
   if (confirm('Êtes-vous sûr de vouloir supprimer cette configuration ?')) {
+    loadingTournamentConfigs.value = true
     try {
       await configStore.deleteTournamentConfig(config.id)
       showSuccess('Configuration supprimée avec succès')
     } catch (error) {
       showError('Erreur lors de la suppression de la configuration')
+    } finally {
+      loadingTournamentConfigs.value = false
     }
   }
 }
@@ -429,6 +442,7 @@ const deleteTournamentConfig = async (config) => {
 const saveSoundConfig = async () => {
   if (!soundConfigForm.value.validate()) return
 
+  loadingSoundConfigs.value = true
   try {
     const formData = new FormData()
     formData.append('name', soundConfigData.value.name)
@@ -447,8 +461,11 @@ const saveSoundConfig = async () => {
     showSoundConfigDialog.value = false
   } catch (error) {
     showError('Erreur lors de l\'enregistrement de la configuration sonore')
+  } finally {
+    loadingSoundConfigs.value = false
   }
 }
+
 
 const editSoundConfig = (config) => {
   editingSoundConfig.value = config
@@ -464,11 +481,14 @@ const editSoundConfig = (config) => {
 
 const deleteSoundConfig = async (config) => {
   if (confirm('Êtes-vous sûr de vouloir supprimer cette configuration sonore ?')) {
+    loadingSoundConfigs.value = true
     try {
       await configStore.deleteSoundConfig(config.id)
       showSuccess('Configuration sonore supprimée avec succès')
     } catch (error) {
       showError('Erreur lors de la suppression de la configuration sonore')
+    } finally {
+      loadingSoundConfigs.value = false
     }
   }
 }

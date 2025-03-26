@@ -1024,10 +1024,40 @@ const resetTimer = async () => {
 }
 
 const levelComplete = () => {
-  // Cette fonction est appelée quand un niveau est terminé
-  if (isAdmin.value) {
-    // Proposer de passer au niveau suivant
-    showNextLevelConfirm.value = true
+  // Jouer un son si disponible
+  playLevelEndSound();
+  
+  // Arrêter le timer pour éviter qu'il ne devienne négatif
+  stopTimer();
+  
+  // Passer automatiquement au niveau suivant sans confirmation
+  autoAdvanceToNextLevel();
+}
+
+const autoAdvanceToNextLevel = async () => {
+  if (!tournament.value) return;
+  
+  try {
+    const nextLevelNumber = currentLevel.value + 1;
+    
+    // Vérifier si un niveau suivant est disponible
+    const nextLevelData = blindsStructure.value.find(l => l.level === nextLevelNumber);
+    if (!nextLevelData) {
+      showWarning('Dernier niveau atteint!');
+      return;
+    }
+    
+    // Si c'est l'admin qui gère ce tournoi, envoyer la mise à jour au serveur
+    if (isAdmin.value) {
+      await tournamentStore.updateTournamentLevel(tournament.value.id, nextLevelNumber);
+      showSuccess(`Passage automatique au niveau ${nextLevelNumber} - Blindes: ${nextLevelData.small_blind}/${nextLevelData.big_blind}`);
+    } else {
+      // Pour les non-admins, attendre que la mise à jour vienne du serveur via WebSocket
+      showInfo('Niveau terminé, passage au niveau suivant...');
+    }
+  } catch (error) {
+    console.error('Erreur lors du changement automatique de niveau:', error);
+    showError('Erreur lors du changement de niveau');
   }
 }
 
@@ -1036,35 +1066,48 @@ const confirmNextLevel = () => {
 }
 
 const nextLevel = async () => {
-  if (!isAdmin.value || !tournament.value) return
+  if (!isAdmin.value || !tournament.value) return;
 
   try {
-    const nextLevelNumber = currentLevel.value + 1
-    await tournamentStore.updateTournamentLevel(tournament.value.id, nextLevelNumber)
-
-    // Fermer le dialogue de confirmation
-    showNextLevelConfirm.value = false
-
-    // Mettre à jour localement
-    currentLevel.value = nextLevelNumber
-
-    // Mettre à jour le timer avec la durée du nouveau niveau
-    const level = blindsStructure.value.find(l => l.level === nextLevelNumber)
-    if (level) {
-      timeRemaining.value = level.duration * 60
-      levelDuration.value = level.duration * 60
-      lastUpdateTime.value = Date.now()
-
-      // Redémarrer le timer si nécessaire
-      if (!isPaused.value) {
-        startTimer()
-      }
+    const nextLevelNumber = currentLevel.value + 1;
+    
+    // Vérifier si un niveau suivant est disponible
+    const nextLevelData = blindsStructure.value.find(l => l.level === nextLevelNumber);
+    if (!nextLevelData) {
+      showWarning('Dernier niveau atteint!');
+      showNextLevelConfirm.value = false;
+      return;
     }
-
-    showSuccess(`Passage au niveau ${nextLevelNumber}`)
+    
+    // Mettre à jour le serveur
+    await tournamentStore.updateTournamentLevel(tournament.value.id, nextLevelNumber);
+    
+    // Fermer le dialogue de confirmation
+    showNextLevelConfirm.value = false;
+    
+    // Afficher une notification
+    showSuccess(`Passage manuel au niveau ${nextLevelNumber} - Blindes: ${nextLevelData.small_blind}/${nextLevelData.big_blind}`);
   } catch (error) {
-    console.error('Erreur lors du changement de niveau:', error)
-    showError('Erreur lors du changement de niveau')
+    console.error('Erreur lors du changement manuel de niveau:', error);
+    showError('Erreur lors du changement de niveau');
+  }
+}
+
+const showInfo = (text) => {
+  snackbar.value = {
+    show: true,
+    text,
+    color: 'info',
+    timeout: 3000
+  }
+}
+
+const showWarning = (text) => {
+  snackbar.value = {
+    show: true,
+    text,
+    color: 'warning',
+    timeout: 3000
   }
 }
 
@@ -1282,21 +1325,41 @@ const setupWebSocket = async () => {
     // Level changed
     removeListeners.push(
       websocketService.on('level_changed', (data) => {
-        console.log('Level changed:', data)
-
+        console.log('Level changed event received:', data);
+        
         if (data.level) {
-          currentLevel.value = data.level
-        }
-
-        if (data.seconds_remaining !== undefined && data.level_duration !== undefined) {
-          timeRemaining.value = data.seconds_remaining
-          levelDuration.value = data.level_duration
-          lastUpdateTime.value = Date.now()
-        }
-
-        // Restart timer if not paused
-        if (!isPaused.value) {
-          startTimer()
+          currentLevel.value = data.level;
+          
+          // Si nous avons des données de timer du serveur, les utiliser
+          if (data.seconds_remaining !== undefined && data.level_duration !== undefined) {
+            timeRemaining.value = data.seconds_remaining;
+            levelDuration.value = data.level_duration;
+          } else {
+            // Sinon, obtenir la durée à partir de la structure des blindes
+            const level = blindsStructure.value.find(l => l.level === data.level);
+            if (level) {
+              timeRemaining.value = level.duration * 60;
+              levelDuration.value = level.duration * 60;
+            }
+          }
+          
+          lastUpdateTime.value = Date.now();
+          
+          // Afficher une notification pour les utilisateurs non-admin
+          if (!isAdmin.value) {
+            const levelData = blindsStructure.value.find(l => l.level === data.level);
+            if (levelData) {
+              showInfo(`Niveau ${data.level} - Blindes: ${levelData.small_blind}/${levelData.big_blind}`);
+            } else {
+              showInfo(`Passage au niveau ${data.level}`);
+            }
+          }
+          
+          // Redémarrer le timer si non en pause
+          if (!isPaused.value) {
+            stopTimer(); // Arrêter tout timer existant
+            startTimer();
+          }
         }
       })
     )
