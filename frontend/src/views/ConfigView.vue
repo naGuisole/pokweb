@@ -632,6 +632,12 @@ const editingBlindsStructure = ref(null)
 const editingSoundConfig = ref(null)
 const selectedBlindsStructure = ref(null)
 
+// Références pour la gestion de la lecture audio
+const audioPlayer = ref(null)
+const showSoundsDialog = ref(false)
+const selectedSoundConfig = ref(null)
+const currentlyPlayingSound = ref(null)
+
 // Données de formulaire
 const tournamentConfigData = ref({
   name: '',
@@ -941,6 +947,71 @@ const deleteSoundConfig = async (config) => {
       loadingSoundConfigs.value = false
     }
   }
+}
+
+// Méthodes pour la visualisation et la lecture des sons
+const viewSounds = (config) => {
+  selectedSoundConfig.value = config
+  showSoundsDialog.value = true
+}
+
+const closeSoundsDialog = () => {
+  showSoundsDialog.value = false
+  // Arrêter la lecture si un son est en cours
+  if (currentlyPlayingSound.value) {
+    audioPlayer.value.pause()
+    currentlyPlayingSound.value = null
+  }
+}
+
+const playSound = (soundUrl) => {
+  if (audioPlayer.value) {
+    // Si c'est le même son qui est déjà en cours de lecture, l'arrêter
+    if (currentlyPlayingSound.value === soundUrl) {
+      audioPlayer.value.pause()
+      audioPlayer.value.currentTime = 0
+      currentlyPlayingSound.value = null
+      return
+    }
+    
+    // Arrêter la lecture en cours si elle existe
+    if (currentlyPlayingSound.value) {
+      audioPlayer.value.pause()
+    }
+    
+    // Configurer le nouvel audio
+    audioPlayer.value.src = soundUrl
+    audioPlayer.value.play()
+      .then(() => {
+        currentlyPlayingSound.value = soundUrl
+      })
+      .catch(err => {
+        console.error('Erreur lors de la lecture du son:', err)
+        showError('Impossible de lire ce son')
+        currentlyPlayingSound.value = null
+      })
+  }
+}
+
+const handleAudioEnded = () => {
+  currentlyPlayingSound.value = null
+}
+
+// Fonctions utilitaires pour afficher les noms des sons
+const getSoundTitle = (soundName) => {
+  const titles = {
+    'level_start': 'Début de niveau',
+    'level_warning': 'Avertissement',
+    'break_start': 'Début de pause',
+    'break_end': 'Fin de pause'
+  }
+  return titles[soundName] || soundName
+}
+
+const getFileName = (path) => {
+  if (!path) return ''
+  // Extraire le nom du fichier à partir du chemin complet
+  return path.split('/').pop()
 }
 
 // Méthodes utilitaires
