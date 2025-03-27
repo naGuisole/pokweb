@@ -979,11 +979,14 @@ const playSound = (soundUrl) => {
       audioPlayer.value.pause();
     }
     
-    // Préfixer l'URL si nécessaire
+    // Construire l'URL complète correctement
     let fullUrl = soundUrl;
     if (!soundUrl.startsWith('http') && !soundUrl.startsWith('blob:')) {
-      fullUrl = `${import.meta.env.VITE_API_URL}/${soundUrl}`;
+      // S'assurer que l'URL pointe vers le bon chemin sur le serveur
+      fullUrl = `${import.meta.env.VITE_API_URL}/uploads/sounds/${soundUrl.split('/').pop()}`;
     }
+    
+    console.log('Trying to play sound from URL:', fullUrl);
     
     // Configurer le nouvel audio
     audioPlayer.value.src = fullUrl;
