@@ -1,4 +1,5 @@
 <!-- src/views/ConfigView.vue -->
+<!-- src/views/ConfigView.vue - Template -->
 <template>
   <v-container>
     <!-- En-tête -->
@@ -197,9 +198,19 @@
                         <v-btn
                           icon
                           variant="text"
+                          color="info"
+                          @click="viewSounds(item)"
+                          title="Voir les sons"
+                        >
+                          <v-icon>mdi-eye</v-icon>
+                        </v-btn>
+                        <v-btn
+                          icon
+                          variant="text"
                           color="primary"
                           @click="editSoundConfig(item)"
                           :disabled="item.is_default"
+                          title="Modifier"
                         >
                           <v-icon>mdi-pencil</v-icon>
                         </v-btn>
@@ -209,6 +220,7 @@
                           color="error"
                           @click="deleteSoundConfig(item)"
                           :disabled="item.is_default"
+                          title="Supprimer"
                         >
                           <v-icon>mdi-delete</v-icon>
                         </v-btn>
@@ -262,20 +274,19 @@
             ></v-select>
 
             <v-select
+              v-model="tournamentConfigData.payout_structure_id"
+              :items="payoutStructuresSelectItems"
+              label="Structure de paiements"
+              :rules="[v => !!v || 'La structure de paiements est requise']"
+              required
+            ></v-select>
+
+            <v-select
               v-model="tournamentConfigData.sound_configuration_id"
               :items="soundConfigsSelectItems"
               label="Configuration sonore"
               clearable
             ></v-select>
-            
-            <v-text-field
-              v-model.number="tournamentConfigData.rebuy_levels"
-              label="Niveaux de rebuy autorisés"
-              type="number"
-              min="0"
-              hint="Nombre de niveaux pendant lesquels les rebuys sont autorisés (0 = pas de rebuy)"
-              persistent-hint
-            ></v-text-field>
           </v-form>
         </v-card-text>
         <v-card-actions>
@@ -311,15 +322,6 @@
               v-model="blindsStructureData.name"
               label="Nom de la structure"
               :rules="[v => !!v || 'Le nom est requis']"
-              required
-            ></v-text-field>
-            
-            <v-text-field
-              v-model.number="blindsStructureData.starting_chips"
-              label="Jetons de départ"
-              type="number"
-              min="1000"
-              :rules="[v => !!v || 'Le nombre de jetons est requis', v => v >= 1000 || 'Minimum 1000 jetons']"
               required
             ></v-text-field>
 
@@ -498,9 +500,6 @@
       <v-card>
         <v-card-title>{{ selectedBlindsStructure ? selectedBlindsStructure.name : 'Structure de blindes' }}</v-card-title>
         <v-card-text>
-          <div v-if="selectedBlindsStructure" class="text-body-1 mb-4">
-            Jetons de départ: <strong>{{ selectedBlindsStructure.starting_chips }}</strong>
-          </div>
           <v-data-table
             v-if="selectedBlindsStructure && selectedBlindsStructure.structure"
             :headers="[
@@ -530,6 +529,42 @@
       </v-card>
     </v-dialog>
 
+    <!-- Nouveau Dialog pour visualiser et écouter les sons -->
+    <v-dialog v-model="showSoundsDialog" max-width="600px">
+      <v-card>
+        <v-card-title>{{ selectedSoundConfig ? selectedSoundConfig.name : 'Configuration sonore' }}</v-card-title>
+        <v-card-text>
+          <v-list v-if="selectedSoundConfig && selectedSoundConfig.sounds">
+            <v-list-item v-for="(soundUrl, soundName) in selectedSoundConfig.sounds" :key="soundName">
+              <template v-slot:prepend>
+                <v-btn 
+                  icon 
+                  color="primary" 
+                  @click="playSound(soundUrl)"
+                  :loading="currentlyPlayingSound === soundUrl"
+                  :disabled="currentlyPlayingSound && currentlyPlayingSound !== soundUrl"
+                >
+                  <v-icon>{{ currentlyPlayingSound === soundUrl ? 'mdi-stop' : 'mdi-play' }}</v-icon>
+                </v-btn>
+              </template>
+              <v-list-item-title>{{ getSoundTitle(soundName) }}</v-list-item-title>
+              <v-list-item-subtitle>{{ getFileName(soundUrl) }}</v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+          <v-alert v-else type="info" text="Aucun son disponible dans cette configuration" variant="tonal"></v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="primary"
+            @click="closeSoundsDialog"
+          >
+            Fermer
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar pour les notifications -->
     <v-snackbar
       v-model="snackbar.show"
@@ -546,6 +581,9 @@
         </v-btn>
       </template>
     </v-snackbar>
+
+    <!-- Élément audio caché pour la lecture des sons -->
+    <audio ref="audioPlayer" @ended="handleAudioEnded"></audio>
   </v-container>
 </template>
 
