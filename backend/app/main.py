@@ -124,6 +124,8 @@ app.add_middleware(
 )
 
 app.mount("/uploads/profile_images", StaticFiles(directory="uploads/profile_images"), name="profile_images")
+app.mount("/uploads/sounds", StaticFiles(directory="uploads/sounds"), name="sounds")
+
 
 
 

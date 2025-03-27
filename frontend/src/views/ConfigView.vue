@@ -968,30 +968,36 @@ const playSound = (soundUrl) => {
   if (audioPlayer.value) {
     // Si c'est le même son qui est déjà en cours de lecture, l'arrêter
     if (currentlyPlayingSound.value === soundUrl) {
-      audioPlayer.value.pause()
-      audioPlayer.value.currentTime = 0
-      currentlyPlayingSound.value = null
-      return
+      audioPlayer.value.pause();
+      audioPlayer.value.currentTime = 0;
+      currentlyPlayingSound.value = null;
+      return;
     }
     
     // Arrêter la lecture en cours si elle existe
     if (currentlyPlayingSound.value) {
-      audioPlayer.value.pause()
+      audioPlayer.value.pause();
+    }
+    
+    // Préfixer l'URL si nécessaire
+    let fullUrl = soundUrl;
+    if (!soundUrl.startsWith('http') && !soundUrl.startsWith('blob:')) {
+      fullUrl = `${import.meta.env.VITE_API_URL}/${soundUrl}`;
     }
     
     // Configurer le nouvel audio
-    audioPlayer.value.src = soundUrl
+    audioPlayer.value.src = fullUrl;
     audioPlayer.value.play()
       .then(() => {
-        currentlyPlayingSound.value = soundUrl
+        currentlyPlayingSound.value = soundUrl;
       })
       .catch(err => {
-        console.error('Erreur lors de la lecture du son:', err)
-        showError('Impossible de lire ce son')
-        currentlyPlayingSound.value = null
-      })
+        console.error('Erreur lors de la lecture du son:', err);
+        showError('Impossible de lire ce son');
+        currentlyPlayingSound.value = null;
+      });
   }
-}
+};
 
 const handleAudioEnded = () => {
   currentlyPlayingSound.value = null
