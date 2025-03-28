@@ -340,25 +340,35 @@
         <v-card-title>
           {{ editingBlindsStructure ? 'Modifier la structure' : 'Nouvelle structure de blindes' }}
         </v-card-title>
-        <v-card-text>
-          <v-form ref="blindsStructureForm" v-model="blindsStructureValid">
-            <v-text-field
+        <v-text-field
               v-model="blindsStructureData.name"
               label="Nom de la structure"
               :rules="[v => !!v || 'Le nom est requis']"
               required
             ></v-text-field>
-
+        <v-card-text>
+          <v-form ref="blindsStructureForm" v-model="blindsStructureValid">
             <div class="d-flex justify-space-between align-center mt-4 mb-2">
               <h3 class="text-subtitle-1">Niveaux de blindes</h3>
-              <v-btn
-                color="primary"
-                size="small"
-                prepend-icon="mdi-plus"
-                @click="addBlindLevel"
-              >
-                Ajouter un niveau
-              </v-btn>
+              <div>
+                <v-btn
+                  color="secondary"
+                  size="small"
+                  prepend-icon="mdi-content-copy"
+                  class="mr-2"
+                  @click="loadDefaultStructure"
+                >
+                  Template standard
+                </v-btn>
+                <v-btn
+                  color="primary"
+                  size="small"
+                  prepend-icon="mdi-plus"
+                  @click="addBlindLevel"
+                >
+                  Ajouter un niveau
+                </v-btn>
+              </div>
             </div>
 
             <v-alert
@@ -523,6 +533,13 @@
     <v-dialog v-model="showBlindsDetailsDialog" max-width="700px">
       <v-card>
         <v-card-title>{{ selectedBlindsStructure ? selectedBlindsStructure.name : 'Structure de blindes' }}</v-card-title>
+        <v-text-field
+          v-model.number="blindsStructureData.starting_chips"
+          label="Jetons de départ"
+          type="number"
+          :rules="[v => !!v || 'Le nombre de jetons est requis', v => v >= 1000 || 'Minimum 1000 jetons']"
+          required
+        ></v-text-field>
         <v-card-text>
           <v-data-table
             v-if="selectedBlindsStructure && selectedBlindsStructure.structure"
@@ -676,7 +693,7 @@ const tournamentConfigData = ref({
 const blindsStructureData = ref({
   name: '',
   structure: [],
-  starting_chips: 5000
+  starting_chips: 8000
 })
 
 const soundConfigData = ref({
@@ -800,12 +817,16 @@ const saveTournamentConfig = async () => {
 
 const editTournamentConfig = (config) => {
   editingTournamentConfig.value = config
+  // S'assurer d'extraire les IDs des relations imbriquées
+  const blindsStructureId = config.blinds_structure ? config.blinds_structure.id : null
+  const soundConfigId = config.sound_configuration ? config.sound_configuration.id : null
+  
   tournamentConfigData.value = {
     name: config.name,
     tournament_type: config.tournament_type,
     buy_in: config.buy_in,
-    blinds_structure_id: config.blinds_structure_id,
-    sound_configuration_id: config.sound_configuration_id,
+    blinds_structure_id: blindsStructureId,
+    sound_configuration_id: soundConfigId,
     is_default: config.is_default,
     rebuy_levels: config.rebuy_levels || 0
   }
@@ -930,6 +951,38 @@ const deleteBlindsStructure = async (structure) => {
     }
   }
 };
+
+const loadDefaultStructure = () => {
+  // Structure basée sur le MTT standard
+  blindsStructureData.value.structure = [
+    {"level": 1, "small_blind": 25, "big_blind": 25, "duration": 20},
+    {"level": 2, "small_blind": 25, "big_blind": 50, "duration": 20},
+    {"level": 3, "small_blind": 50, "big_blind": 100, "duration": 20},
+    {"level": 4, "small_blind": 75, "big_blind": 150, "duration": 20},
+    {"level": 5, "small_blind": 100, "big_blind": 200, "duration": 25},
+    {"level": 6, "small_blind": 150, "big_blind": 300, "duration": 25},
+    {"level": 7, "small_blind": 200, "big_blind": 400, "duration": 25},
+    {"level": 8, "small_blind": 250, "big_blind": 500, "duration": 25},
+    {"level": 9, "small_blind": 300, "big_blind": 600, "duration": 30},
+    {"level": 10, "small_blind": 400, "big_blind": 800, "duration": 30},
+    {"level": 11, "small_blind": 500, "big_blind": 1000, "duration": 30},
+    {"level": 12, "small_blind": 600, "big_blind": 1200, "duration": 30},
+    {"level": 13, "small_blind": 800, "big_blind": 1600, "duration": 30},
+    {"level": 14, "small_blind": 1000, "big_blind": 2000, "duration": 30},
+    {"level": 15, "small_blind": 1500, "big_blind": 3000, "duration": 30},
+    {"level": 16, "small_blind": 2000, "big_blind": 4000, "duration": 30},
+    {"level": 17, "small_blind": 2500, "big_blind": 5000, "duration": 30},
+    {"level": 18, "small_blind": 3000, "big_blind": 6000, "duration": 30},
+    {"level": 19, "small_blind": 4000, "big_blind": 8000, "duration": 30},
+    {"level": 20, "small_blind": 5000, "big_blind": 10000, "duration": 30},
+    {"level": 21, "small_blind": 7500, "big_blind": 15000, "duration": 99}
+  ];
+  
+  // Définir également les jetons de départ typiques pour un MTT
+  blindsStructureData.value.starting_chips = 8000;
+  
+  showSuccess('Structure MTT standard chargée');
+}
 
 // Méthodes pour les configurations sonores
 const saveSoundConfig = async () => {
