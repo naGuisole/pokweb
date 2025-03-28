@@ -73,12 +73,14 @@
 
         <v-row dense>
           <v-col cols="12">
-            <flat-pickr
-              v-model="dateTimeValue"
-              :config="dateTimeConfig"
-              class="date-time-picker-input"
+            <!-- Remplacer le composant flatpickr par un v-menu de Vuetify -->
+            <v-menu
+              v-model="showDatePicker"
+              :close-on-content-click="false"
+              transition="scale-transition"
+              min-width="auto"
             >
-              <template v-slot:default="{ fp }">
+              <template v-slot:activator="{ props }">
                 <v-text-field
                   v-model="formattedDateTime"
                   label="Date et heure"
@@ -87,11 +89,33 @@
                   color="primary"
                   prepend-inner-icon="mdi-calendar-clock"
                   readonly
-                  @click="fp.open()"
+                  v-bind="props"
                   :rules="[v => !!dateTimeValue || 'La date et l\'heure sont requises']"
                 ></v-text-field>
               </template>
-            </flat-pickr>
+              <v-date-picker
+                v-model="selectedDate"
+                :first-day-of-week="1"
+                locale="fr"
+                @update:model-value="datePicked = true"
+              >
+                <v-spacer></v-spacer>
+                <v-btn
+                  text
+                  color="primary"
+                  @click="showDatePicker = false"
+                >
+                  Annuler
+                </v-btn>
+                <v-btn
+                  text
+                  color="primary"
+                  @click="confirmDate"
+                >
+                  OK
+                </v-btn>
+              </v-date-picker>
+            </v-menu>
           </v-col>
         </v-row>
 
@@ -251,18 +275,17 @@
   </v-snackbar>
 </template>
 
-    <script setup>
+<script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useConfigurationStore } from '@/stores/configuration'
 import { useAuthStore } from '@/stores/auth'
-import flatPickr from 'vue-flatpickr-component'
-import 'flatpickr/dist/flatpickr.css'
-import { French } from 'flatpickr/dist/l10n/fr.js'
+import { useTournamentStore } from '@/stores/tournament'
 
 const configStore = useConfigurationStore()
 const authStore = useAuthStore()
+const tournamentStore = useTournamentStore()
 
 const props = defineProps({
   tournament: {
@@ -284,6 +307,12 @@ const valid = ref(false)
 // Valeur pour le date-time picker
 const dateTimeValue = ref(null)
 
+// Variables pour le nouveau sélecteur de date
+const showDatePicker = ref(false)
+const selectedDate = ref(null)
+const selectedTime = ref('20:00')
+const datePicked = ref(false)
+
 // État de la snackbar
 const snackbar = ref({
   show: false,
@@ -292,23 +321,16 @@ const snackbar = ref({
   timeout: 5000
 })
 
-// Configuration de flatpickr pour date + heure
-const dateTimeConfig = {
-  locale: French,
-  dateFormat: 'Y-m-d H:i',
-  enableTime: true, // Activer la sélection d'heure
-  time_24hr: true, // Format 24h
-  minDate: 'today',
-  disableMobile: true,
-  altInput: true,
-  altFormat: 'j F Y à H:i', // Format d'affichage français
-  position: 'auto',
-  minuteIncrement: 10 // Incréments de 10 minutes
-}
+// IDs par défaut pour les configurations
+let defaultJAPTConfigId = null
+let defaultSoundConfigId = null
 
 // Configurations disponibles (à charger depuis l'API)
 const availableConfigurations = ref([])
 const availableSoundConfigs = ref([])
+
+// Nombre de tournois de type JAPT existants pour auto-incrémenter le numéro
+const japtCount = ref(0)
 
 // Types de tournoi
 const tournamentTypes = [
@@ -332,17 +354,33 @@ const formData = ref({
   league_id: authStore.user?.league_id
 })
 
+
+
+// Configuration de flatpickr pour date + heure
+const dateTimeConfig = {
+  locale: French,
+  dateFormat: 'Y-m-d H:i',
+  enableTime: true, // Activer la sélection d'heure
+  time_24hr: true, // Format 24h
+  minDate: 'today',
+  disableMobile: true,
+  altInput: true,
+  // Définir explicitement le format d'affichage en Français
+  altFormat: 'l d F Y à H:i', // 'l' pour le jour de la semaine
+  position: 'auto',
+  minuteIncrement: 10 // Incréments de 10 minutes
+}
+
 // Computed
 const editMode = computed(() => !!props.tournament)
 
+// Computed rendu inutile car nous utilisons maintenant directement le format de flatpickr
 const formattedDateTime = computed(() => {
   if (!dateTimeValue.value) return ''
-  try {
-    const date = new Date(dateTimeValue.value)
-    return format(date, 'PPP à HH:mm', { locale: fr })
-  } catch (e) {
-    return dateTimeValue.value
-  }
+  
+  // Ici, nous allons simplement retourner la valeur formatée par flatpickr
+  // L'affichage sera géré par l'attribut altFormat de flatpickr configuré ci-dessus
+  return '' // Cette valeur sera remplacée par flatpickr
 })
 
 // Synchroniser dateTimeValue avec formData.date et formData.time
@@ -397,13 +435,67 @@ const loadConfigurations = async () => {
     // Chargement des configurations via le store
     await Promise.all([
       configStore.fetchTournamentConfigs(),
-      configStore.fetchSoundConfigs()
+      configStore.fetchSoundConfigs(),
+      tournamentStore.fetchTournaments() // Charger les tournois pour déterminer le numéro suivant
     ])
     
     availableConfigurations.value = configStore.tournamentConfigs
     availableSoundConfigs.value = configStore.soundConfigs
+
+    // Trouver les configurations par défaut
+    const japtConfig = availableConfigurations.value.find(
+      config => config.name === 'JAPT Standard' && config.is_default
+    )
+    
+    const defaultSoundConfig = availableSoundConfigs.value.find(
+      config => config.name === 'Sons par défaut' && config.is_default
+    )
+
+    if (japtConfig) {
+      defaultJAPTConfigId = japtConfig.id
+    }
+    
+    if (defaultSoundConfig) {
+      defaultSoundConfigId = defaultSoundConfig.id
+    }
+
+    // Si non en mode édition, initialiser avec les valeurs par défaut
+    if (!editMode.value) {
+      formData.value.configuration_id = defaultJAPTConfigId
+      formData.value.sound_configuration_id = defaultSoundConfigId
+      
+      // Calculer le nom du tournoi suivant
+      setNextTournamentName()
+    }
   } catch (error) {
     console.error('Erreur lors du chargement des configurations:', error)
+  }
+}
+
+const setNextTournamentName = () => {
+  // Filtrer les tournois de type JAPT pour déterminer le dernier numéro
+  if (tournamentStore.tournaments && tournamentStore.tournaments.length > 0) {
+    const japtTournaments = tournamentStore.tournaments.filter(
+      t => t.tournament_type === 'JAPT' && t.name.startsWith('JAPT #')
+    )
+    
+    let maxNumber = 0
+    japtTournaments.forEach(tournament => {
+      // Extraire le numéro du nom "JAPT #X"
+      const match = tournament.name.match(/JAPT #(\d+)/)
+      if (match && match[1]) {
+        const num = parseInt(match[1])
+        if (!isNaN(num) && num > maxNumber) {
+          maxNumber = num
+        }
+      }
+    })
+    
+    // Définir le nouveau nom avec le numéro incrémenté
+    formData.value.name = `JAPT #${maxNumber + 1}`
+  } else {
+    // S'il n'y a aucun tournoi, commencer à 1
+    formData.value.name = 'JAPT #1'
   }
 }
 
@@ -463,6 +555,17 @@ watch(() => formData.value.tournament_type, (newType) => {
   } else {
     formData.value.max_players = 10
     formData.value.players_per_table = 10
+  }
+  
+  // Ajuster le nom du tournoi en fonction du type
+  if (!editMode.value) {
+    if (newType === 'JAPT') {
+      setNextTournamentName()
+    } else if (newType === 'CLASSIQUE') {
+      formData.value.name = 'Classique'
+    } else if (newType === 'MTT') {
+      formData.value.name = 'Tournoi Multi-Tables'
+    }
   }
 })
 
@@ -555,5 +658,43 @@ onMounted(async () => {
 :deep(.flatpickr-time input:focus),
 :deep(.flatpickr-time .flatpickr-am-pm:focus) {
   background: rgba(25, 118, 210, 0.1);
+}
+
+/* Assurer que le champ de date a le même style que les autres champs */
+.date-time-picker-input {
+  width: 100%;
+}
+
+/* Forcer le style du champ à ressembler aux autres champs Vuetify */
+.v-date-picker-field {
+  width: 100%;
+}
+
+.v-date-picker-field :deep(input) {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  width: 100% !important;
+}
+
+/* S'assurer que le label ressemble aux autres labels Vuetify */
+.v-date-picker-field :deep(.v-field__outline) {
+  --v-field-border-width: 1px !important;
+  border-color: rgba(0, 0, 0, 0.23) !important;
+}
+
+.v-date-picker-field :deep(.v-field__field) {
+  height: auto !important;
+  padding-top: 6px !important;
+  padding-bottom: 6px !important;
+}
+
+.v-date-picker-field :deep(.v-label) {
+  font-size: 16px !important;
+}
+
+/* Ajustement pour s'assurer que le texte est complet */
+.v-date-picker-field :deep(.v-field__input) {
+  padding-right: 12px !important;
+  text-overflow: ellipsis !important;
 }
 </style>

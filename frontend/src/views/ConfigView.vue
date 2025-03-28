@@ -346,6 +346,13 @@
               :rules="[v => !!v || 'Le nom est requis']"
               required
             ></v-text-field>
+            <v-text-field
+              v-model.number="blindsStructureData.starting_chips"
+              label="Jetons de départ"
+              type="number"
+              :rules="[v => !!v || 'Le nombre de jetons est requis', v => v >= 1000 || 'Minimum 1000 jetons']"
+              required
+            ></v-text-field>
         <v-card-text>
           <v-form ref="blindsStructureForm" v-model="blindsStructureValid">
             <div class="d-flex justify-space-between align-center mt-4 mb-2">
@@ -860,9 +867,9 @@ const addBlindLevel = () => {
   
   const newLevel = {
     level: blindsStructureData.value.structure.length + 1,
-    small_blind: lastLevel ? lastLevel.small_blind * 1.5 : 25,
-    big_blind: lastLevel ? lastLevel.big_blind * 1.5 : 50,
-    duration: 15
+    small_blind: lastLevel ? lastLevel.small_blind * 2 : 25,
+    big_blind: lastLevel ? lastLevel.big_blind * 2 : 50,
+    duration: lastLevel ? lastLevel.duration : 20
   }
   
   blindsStructureData.value.structure.push(newLevel)
