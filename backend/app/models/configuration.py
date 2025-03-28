@@ -10,6 +10,7 @@ class BlindsStructure(Base):
 
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False)
+    is_default = Column(Boolean, default=False)
     structure = Column(JSON, nullable=False)  # [{level, small_blind, big_blind, duration}]
     starting_chips = Column(Integer, nullable=False, default=20000)  # Déplacé ici depuis PayoutStructure
     created_by_id = Column(Integer, ForeignKey('users.id'), nullable=True)

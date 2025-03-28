@@ -91,6 +91,13 @@ async def update_blinds_structure(
             detail="Structure de blindes non trouvée"
         )
 
+    # Empêcher la modification des structures par défaut
+    if db_structure.is_default:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Les structures par défaut ne peuvent pas être modifiées"
+        )
+
     if db_structure.created_by_id != current_user.id and not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -120,6 +127,13 @@ async def delete_blinds_structure(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Structure de blindes non trouvée"
+        )
+
+    # Empêcher la suppression des structures par défaut
+    if db_structure.is_default:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Les structures par défaut ne peuvent pas être supprimées"
         )
 
     if db_structure.created_by_id != current_user.id and not current_user.is_admin:

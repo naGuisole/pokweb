@@ -56,24 +56,34 @@
                       </template>
 
                       <template v-slot:item.actions="{ item }">
-                        <v-btn
-                          icon
-                          variant="text"
-                          color="primary"
-                          @click="editTournamentConfig(item)"
-                          :disabled="item.is_default"
-                        >
-                          <v-icon>mdi-pencil</v-icon>
-                        </v-btn>
-                        <v-btn
-                          icon
-                          variant="text"
-                          color="error"
-                          @click="deleteTournamentConfig(item)"
-                          :disabled="item.is_default"
-                        >
-                          <v-icon>mdi-delete</v-icon>
-                        </v-btn>
+                        <div class="d-flex align-center">
+                          <v-icon
+                            v-if="item.is_default"
+                            color="grey"
+                            class="mr-2"
+                            title="Configuration par défaut (non modifiable)"
+                          >
+                            mdi-lock
+                          </v-icon>
+                          <v-btn
+                            icon
+                            variant="text"
+                            color="primary"
+                            @click="editTournamentConfig(item)"
+                            :disabled="item.is_default"
+                          >
+                            <v-icon>mdi-pencil</v-icon>
+                          </v-btn>
+                          <v-btn
+                            icon
+                            variant="text"
+                            color="error"
+                            @click="deleteTournamentConfig(item)"
+                            :disabled="item.is_default"
+                          >
+                            <v-icon>mdi-delete</v-icon>
+                          </v-btn>
+                        </div>
                       </template>
                     </v-data-table>
                   </v-col>
@@ -118,30 +128,42 @@
                       </template>
 
                       <template v-slot:item.actions="{ item }">
-                        <v-btn
-                          icon
-                          variant="text"
-                          color="primary"
-                          @click="viewBlindsStructure(item)"
-                        >
-                          <v-icon>mdi-eye</v-icon>
-                        </v-btn>
-                        <v-btn
-                          icon
-                          variant="text"
-                          color="primary"
-                          @click="editBlindsStructure(item)"
-                        >
-                          <v-icon>mdi-pencil</v-icon>
-                        </v-btn>
-                        <v-btn
-                          icon
-                          variant="text"
-                          color="error"
-                          @click="deleteBlindsStructure(item)"
-                        >
-                          <v-icon>mdi-delete</v-icon>
-                        </v-btn>
+                        <div class="d-flex align-center">
+                          <v-icon
+                            v-if="item.is_default"
+                            color="grey"
+                            class="mr-2"
+                            title="Structure par défaut"
+                          >
+                            mdi-lock
+                          </v-icon>
+                          <v-btn
+                            icon
+                            variant="text"
+                            color="primary"
+                            @click="viewBlindsStructure(item)"
+                          >
+                            <v-icon>mdi-eye</v-icon>
+                          </v-btn>
+                          <v-btn
+                            icon
+                            variant="text"
+                            color="primary"
+                            @click="editBlindsStructure(item)"
+                            :disabled="item.is_default"
+                          >
+                            <v-icon>mdi-pencil</v-icon>
+                          </v-btn>
+                          <v-btn
+                            icon
+                            variant="text"
+                            color="error"
+                            @click="deleteBlindsStructure(item)"
+                            :disabled="item.is_default"
+                          >
+                            <v-icon>mdi-delete</v-icon>
+                          </v-btn>
+                        </div>
                       </template>
                     </v-data-table>
                   </v-col>
@@ -195,35 +217,45 @@
                       </template>
 
                       <template v-slot:item.actions="{ item }">
-                        <v-btn
-                          icon
-                          variant="text"
-                          color="info"
-                          @click="viewSounds(item)"
-                          title="Voir les sons"
-                        >
-                          <v-icon>mdi-eye</v-icon>
-                        </v-btn>
-                        <v-btn
-                          icon
-                          variant="text"
-                          color="primary"
-                          @click="editSoundConfig(item)"
-                          :disabled="item.is_default"
-                          title="Modifier"
-                        >
-                          <v-icon>mdi-pencil</v-icon>
-                        </v-btn>
-                        <v-btn
-                          icon
-                          variant="text"
-                          color="error"
-                          @click="deleteSoundConfig(item)"
-                          :disabled="item.is_default"
-                          title="Supprimer"
-                        >
-                          <v-icon>mdi-delete</v-icon>
-                        </v-btn>
+                        <div class="d-flex align-center">
+                          <v-icon
+                            v-if="item.is_default"
+                            color="grey"
+                            class="mr-2"
+                            title="Configuration par défaut"
+                          >
+                            mdi-lock
+                          </v-icon>
+                          <v-btn
+                            icon
+                            variant="text"
+                            color="info"
+                            @click="viewSounds(item)"
+                            title="Voir les sons"
+                          >
+                            <v-icon>mdi-eye</v-icon>
+                          </v-btn>
+                          <v-btn
+                            icon
+                            variant="text"
+                            color="primary"
+                            @click="editSoundConfig(item)"
+                            :disabled="item.is_default"
+                            title="Modifier"
+                          >
+                            <v-icon>mdi-pencil</v-icon>
+                          </v-btn>
+                          <v-btn
+                            icon
+                            variant="text"
+                            color="error"
+                            @click="deleteSoundConfig(item)"
+                            :disabled="item.is_default"
+                            title="Supprimer"
+                          >
+                            <v-icon>mdi-delete</v-icon>
+                          </v-btn>
+                        </div>
                       </template>
                     </v-data-table>
                   </v-col>
@@ -270,14 +302,6 @@
               :items="blindsStructuresSelectItems"
               label="Structure de blindes"
               :rules="[v => !!v || 'La structure de blindes est requise']"
-              required
-            ></v-select>
-
-            <v-select
-              v-model="tournamentConfigData.payout_structure_id"
-              :items="payoutStructuresSelectItems"
-              label="Structure de paiements"
-              :rules="[v => !!v || 'La structure de paiements est requise']"
               required
             ></v-select>
 
@@ -692,16 +716,17 @@ const soundConfigsSelectItems = computed(() => {
 });
 
 // En-têtes des tableaux
+// En-têtes pour les configurations de tournoi
 const tournamentHeaders = [
   { title: 'Nom', key: 'name' },
   { title: 'Type', key: 'tournament_type' },
   { title: 'Buy-in', key: 'buy_in' },
   { title: 'Structure', key: 'blinds_structure' },
   { title: 'Sons', key: 'sound_configuration' },
-  { title: 'Par défaut', key: 'is_default' },
   { title: 'Actions', key: 'actions', sortable: false }
 ]
 
+// En-têtes pour les structures de blindes
 const blindsHeaders = [
   { title: 'Nom', key: 'name' },
   { title: 'Jetons de départ', key: 'starting_chips' },
@@ -709,10 +734,10 @@ const blindsHeaders = [
   { title: 'Actions', key: 'actions', sortable: false }
 ]
 
+// En-têtes pour les configurations sonores
 const soundHeaders = [
   { title: 'Nom', key: 'name' },
   { title: 'Sons', key: 'sounds' },
-  { title: 'Par défaut', key: 'is_default' },
   { title: 'Actions', key: 'actions', sortable: false }
 ]
 
@@ -864,14 +889,21 @@ const saveBlindsStructure = async () => {
 }
 
 const editBlindsStructure = (structure) => {
-  editingBlindsStructure.value = structure
+  // Vérifier si la structure est par défaut
+  if (structure.is_default) {
+    showError('Les structures par défaut ne peuvent pas être modifiées');
+    return;
+  }
+
+  editingBlindsStructure.value = structure;
   blindsStructureData.value = {
     name: structure.name,
     structure: [...structure.structure],
-    starting_chips: structure.starting_chips || 5000
-  }
-  showBlindsStructureDialog.value = true
-}
+    starting_chips: structure.starting_chips || 5000,
+    is_default: structure.is_default || false
+  };
+  showBlindsStructureDialog.value = true;
+};
 
 const viewBlindsStructure = (structure) => {
   selectedBlindsStructure.value = structure
@@ -879,19 +911,25 @@ const viewBlindsStructure = (structure) => {
 }
 
 const deleteBlindsStructure = async (structure) => {
+  // Vérifier si la structure est par défaut
+  if (structure.is_default) {
+    showError('Les structures par défaut ne peuvent pas être supprimées');
+    return;
+  }
+
   if (confirm('Êtes-vous sûr de vouloir supprimer cette structure de blindes ?')) {
-    loadingBlindsStructures.value = true
+    loadingBlindsStructures.value = true;
     try {
-      await configStore.deleteBlindsStructure(structure.id)
-      showSuccess('Structure de blindes supprimée avec succès')
+      await configStore.deleteBlindsStructure(structure.id);
+      showSuccess('Structure de blindes supprimée avec succès');
     } catch (error) {
-      console.error('Erreur lors de la suppression de la structure de blindes:', error)
-      showError('Erreur lors de la suppression de la structure de blindes')
+      console.error('Erreur lors de la suppression de la structure de blindes:', error);
+      showError(error.response?.data?.detail || 'Erreur lors de la suppression de la structure de blindes');
     } finally {
-      loadingBlindsStructures.value = false
+      loadingBlindsStructures.value = false;
     }
   }
-}
+};
 
 // Méthodes pour les configurations sonores
 const saveSoundConfig = async () => {

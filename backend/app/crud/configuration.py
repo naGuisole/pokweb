@@ -343,6 +343,7 @@ def create_default_blinds_structures(db: Session):
     japt_blinds = {
         "name": "JAPT Standard Blinds",
         "starting_chips": 5500,
+        "is_default": True,
         "structure": [
             {"level": 1, "small_blind": 25, "big_blind": 25, "duration": 20},
             {"level": 2, "small_blind": 25, "big_blind": 50, "duration": 20},
@@ -368,6 +369,7 @@ def create_default_blinds_structures(db: Session):
     mtt_blinds = {
         "name": "MTT Standard Blinds",
         "starting_chips": 8000,
+        "is_default": True,
         "structure": [
             {"level": 1, "small_blind": 25, "big_blind": 25, "duration": 20},
             {"level": 2, "small_blind": 25, "big_blind": 50, "duration": 20},
@@ -397,6 +399,7 @@ def create_default_blinds_structures(db: Session):
     classic_blinds = {
         "name": "Classique Standard Blinds",
         "starting_chips": 5000,
+        "is_default": True,
         "structure": [
             {"level": 1, "small_blind": 25, "big_blind": 25, "duration": 15},
             {"level": 2, "small_blind": 25, "big_blind": 50, "duration": 15},

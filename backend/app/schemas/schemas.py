@@ -324,7 +324,8 @@ class BlindLevel(BaseModel):
 class BlindsStructureBase(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
     structure: List[Dict]  # [{level, small_blind, big_blind, duration}]
-    starting_chips: int = Field(..., gt=0)  # Ajouté ici depuis PayoutStructure
+    starting_chips: int = Field(..., gt=0)
+    is_default: bool = False
 
     @field_validator('structure')
     def validate_structure(cls, v):

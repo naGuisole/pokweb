@@ -153,11 +153,13 @@ CREATE TABLE blog_post_images (
 INSERT INTO blinds_structures (
     name,
     starting_chips,
+    is_default,
     structure
 ) VALUES
 (
     'JAPT Standard Blinds',
     5500,
+    TRUE,
     '[
         {"level":1,"small_blind":25,"big_blind":25,"duration":20},
         {"level":2,"small_blind":25,"big_blind":50,"duration":20},
@@ -180,6 +182,7 @@ INSERT INTO blinds_structures (
 (
     'MTT Standard Blinds',
     8000,
+    TRUE,
     '[
         {"level":1,"small_blind":25,"big_blind":25,"duration":20},
         {"level":2,"small_blind":25,"big_blind":50,"duration":20},
@@ -207,6 +210,7 @@ INSERT INTO blinds_structures (
 (
     'Classique Standard Blinds',
     5000,
+    TRUE,
     '[
         {"level":1,"small_blind":25,"big_blind":25,"duration":15},
         {"level":2,"small_blind":25,"big_blind":50,"duration":15},
