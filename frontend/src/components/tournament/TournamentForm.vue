@@ -64,7 +64,7 @@
           </v-col>
         </v-row>
 
-        <!-- Date et heure avec flatpickr -->
+        <!-- Date et heure avec v-date-picker -->
         <div class="section-title d-flex align-center mt-4 mb-2">
           <v-icon icon="mdi-calendar-clock" color="primary" class="mr-2" />
           <h3 class="text-h6 font-weight-medium">Planification</h3>
@@ -73,7 +73,6 @@
 
         <v-row dense>
           <v-col cols="12">
-            <!-- Remplacer le composant flatpickr par un v-menu de Vuetify -->
             <v-menu
               v-model="showDatePicker"
               :close-on-content-click="false"
@@ -97,7 +96,7 @@
                 v-model="selectedDate"
                 :first-day-of-week="1"
                 locale="fr"
-                @update:model-value="datePicked = true"
+                @update:model-value="handleDateChange"
               >
                 <v-spacer></v-spacer>
                 <v-btn
@@ -116,6 +115,45 @@
                 </v-btn>
               </v-date-picker>
             </v-menu>
+            
+            <!-- Sélecteur d'heure (vous pouvez ajouter cela séparément) -->
+            <v-dialog
+              v-model="showTimePicker"
+              max-width="290px"
+            >
+              <template v-slot:activator="{ props }">
+                <v-btn
+                  variant="text"
+                  v-bind="props"
+                  color="primary"
+                  class="mt-2"
+                >
+                  Changer l'heure: {{ selectedTime }}
+                </v-btn>
+              </template>
+              <v-card>
+                <v-card-title>Sélectionner l'heure</v-card-title>
+                <v-card-text>
+                  <v-select
+                    v-model="selectedTime"
+                    label="Heure"
+                    :items="timeOptions"
+                    variant="outlined"
+                    density="comfortable"
+                  ></v-select>
+                </v-card-text>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn
+                    text
+                    color="primary"
+                    @click="confirmTime"
+                  >
+                    OK
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
           </v-col>
         </v-row>
 
@@ -309,9 +347,17 @@ const dateTimeValue = ref(null)
 
 // Variables pour le nouveau sélecteur de date
 const showDatePicker = ref(false)
+const showTimePicker = ref(false)
 const selectedDate = ref(null)
 const selectedTime = ref('20:00')
 const datePicked = ref(false)
+
+// Options d'heures pour le sélecteur
+const timeOptions = Array.from({length: 24 * 6}, (_, i) => {
+  const hour = Math.floor(i / 6);
+  const minute = (i % 6) * 10;
+  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+})
 
 // État de la snackbar
 const snackbar = ref({
@@ -354,43 +400,50 @@ const formData = ref({
   league_id: authStore.user?.league_id
 })
 
+// Computed pour la date formatée
+const formattedDateTime = computed(() => {
+  if (!selectedDate.value) return '';
+  return format(new Date(`${selectedDate.value}T${selectedTime.value}`), 'PPP à HH:mm', { locale: fr });
+})
 
+// Fonction pour confirmer la date sélectionnée
+const confirmDate = () => {
+  showDatePicker.value = false;
+  if (datePicked.value && selectedDate.value) {
+    formData.value.date = selectedDate.value;
+    // Assurez-vous de créer correctement l'objet Date
+    try {
+      const dateTime = new Date(`${selectedDate.value}T${selectedTime.value}`);
+      // Vérifier si la date est valide
+      if (!isNaN(dateTime.getTime())) {
+        dateTimeValue.value = dateTime.toISOString();
+      } else {
+        console.error("Date invalide:", selectedDate.value, selectedTime.value);
+      }
+    } catch (e) {
+      console.error("Erreur lors de la création de la date:", e);
+    }
+  }
+}
 
-// Configuration de flatpickr pour date + heure
-const dateTimeConfig = {
-  locale: French,
-  dateFormat: 'Y-m-d H:i',
-  enableTime: true, // Activer la sélection d'heure
-  time_24hr: true, // Format 24h
-  minDate: 'today',
-  disableMobile: true,
-  altInput: true,
-  // Définir explicitement le format d'affichage en Français
-  altFormat: 'l d F Y à H:i', // 'l' pour le jour de la semaine
-  position: 'auto',
-  minuteIncrement: 10 // Incréments de 10 minutes
+const handleDateChange = (newDate) => {
+  datePicked.value = true;
+  // S'assurer que c'est une chaîne au format YYYY-MM-DD
+  selectedDate.value = newDate;
+}
+
+// Fonction pour confirmer l'heure sélectionnée
+const confirmTime = () => {
+  showTimePicker.value = false;
+  formData.value.time = selectedTime.value;
+  if (selectedDate.value) {
+    const dateTime = new Date(`${selectedDate.value}T${selectedTime.value}`);
+    dateTimeValue.value = dateTime.toISOString();
+  }
 }
 
 // Computed
 const editMode = computed(() => !!props.tournament)
-
-// Computed rendu inutile car nous utilisons maintenant directement le format de flatpickr
-const formattedDateTime = computed(() => {
-  if (!dateTimeValue.value) return ''
-  
-  // Ici, nous allons simplement retourner la valeur formatée par flatpickr
-  // L'affichage sera géré par l'attribut altFormat de flatpickr configuré ci-dessus
-  return '' // Cette valeur sera remplacée par flatpickr
-})
-
-// Synchroniser dateTimeValue avec formData.date et formData.time
-watch(dateTimeValue, (newValue) => {
-  if (newValue) {
-    const date = new Date(newValue)
-    formData.value.date = format(date, 'yyyy-MM-dd')
-    formData.value.time = format(date, 'HH:mm')
-  }
-})
 
 // Règles de validation
 const nameRules = [
@@ -502,21 +555,24 @@ const setNextTournamentName = () => {
 const initializeForm = () => {
   if (props.tournament) {
     const tournamentDate = new Date(props.tournament.date)
+    
+    // Initialiser les valeurs de date et heure
+    selectedDate.value = format(tournamentDate, 'yyyy-MM-dd')
+    selectedTime.value = format(tournamentDate, 'HH:mm')
+    
     formData.value = {
       ...props.tournament,
       date: format(tournamentDate, 'yyyy-MM-dd'),
       time: format(tournamentDate, 'HH:mm')
     }
     
-    // Initialiser le datetime picker avec la date et l'heure combinées
-    const dateTime = new Date(props.tournament.date)
-    dateTimeValue.value = dateTime.toISOString()
+    // Initialiser dateTimeValue
+    dateTimeValue.value = tournamentDate.toISOString()
   }
 }
 
 const handleSubmit = async () => {
-  const { valid } = await form.value.validate()
-  if (!valid) return
+  if (!form.value.validate()) return
 
   try {
     // Combiner date et heure
@@ -590,21 +646,26 @@ const showSuccess = (message) => {
 
 // Initialisation
 onMounted(async () => {
-  await loadConfigurations()
+  await loadConfigurations();
   
   // Initialiser la date et l'heure par défaut
-  const now = new Date()
-  now.setHours(20, 0, 0, 0) // Par défaut à 20:00
-  dateTimeValue.value = now.toISOString()
+  const now = new Date();
+  now.setHours(20, 0, 0, 0); // Par défaut à 20:00
+  
+  // Formater comme YYYY-MM-DD sans utiliser date-fns
+  selectedDate.value = now.toISOString().split('T')[0]; // Format YYYY-MM-DD
+  selectedTime.value = '20:00';
+  
+  dateTimeValue.value = now.toISOString();
   
   if (editMode.value) {
-    initializeForm()
+    initializeForm();
   } else {
     // Définir la date et l'heure par défaut dans formData
-    formData.value.date = format(now, 'yyyy-MM-dd')
-    formData.value.time = '20:00'
+    formData.value.date = selectedDate.value;
+    formData.value.time = '20:00';
   }
-})
+});
 </script>
 
 <style scoped>
@@ -631,70 +692,5 @@ onMounted(async () => {
 
 .v-btn:hover {
   transform: translateY(-1px);
-}
-
-/* Styles spécifiques à flatpickr */
-:deep(.flatpickr-input) {
-  display: none; /* Cacher l'input original */
-}
-
-:deep(.flatpickr-calendar) {
-  font-family: inherit;
-  border-radius: 4px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-}
-
-:deep(.flatpickr-day.selected) {
-  background: var(--v-primary-base) !important;
-  border-color: var(--v-primary-base) !important;
-}
-
-:deep(.flatpickr-day:hover) {
-  background: rgba(25, 118, 210, 0.1);
-}
-
-:deep(.flatpickr-time input:hover),
-:deep(.flatpickr-time .flatpickr-am-pm:hover),
-:deep(.flatpickr-time input:focus),
-:deep(.flatpickr-time .flatpickr-am-pm:focus) {
-  background: rgba(25, 118, 210, 0.1);
-}
-
-/* Assurer que le champ de date a le même style que les autres champs */
-.date-time-picker-input {
-  width: 100%;
-}
-
-/* Forcer le style du champ à ressembler aux autres champs Vuetify */
-.v-date-picker-field {
-  width: 100%;
-}
-
-.v-date-picker-field :deep(input) {
-  font-family: inherit !important;
-  font-size: inherit !important;
-  width: 100% !important;
-}
-
-/* S'assurer que le label ressemble aux autres labels Vuetify */
-.v-date-picker-field :deep(.v-field__outline) {
-  --v-field-border-width: 1px !important;
-  border-color: rgba(0, 0, 0, 0.23) !important;
-}
-
-.v-date-picker-field :deep(.v-field__field) {
-  height: auto !important;
-  padding-top: 6px !important;
-  padding-bottom: 6px !important;
-}
-
-.v-date-picker-field :deep(.v-label) {
-  font-size: 16px !important;
-}
-
-/* Ajustement pour s'assurer que le texte est complet */
-.v-date-picker-field :deep(.v-field__input) {
-  padding-right: 12px !important;
-  text-overflow: ellipsis !important;
 }
 </style>
