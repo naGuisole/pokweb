@@ -207,7 +207,24 @@ export const useTournamentStore = defineStore('tournament', {
     async updateTournament(id, data) {
       this.saving = true
       try {
-        const updated = await tournamentService.updateTournament(id, data)
+        console.log("Mise à jour du tournoi avec données:", data);
+        
+        // S'assurer que les données envoyées à l'API ont les bons types
+        const tournamentData = {
+          ...data
+        };
+        
+        // Convertir les IDs en nombres
+        if (tournamentData.configuration_id) {
+          tournamentData.configuration_id = Number(tournamentData.configuration_id);
+        }
+        if (tournamentData.sound_configuration_id) {
+          tournamentData.sound_configuration_id = Number(tournamentData.sound_configuration_id);
+        }
+        
+        const updated = await tournamentService.updateTournament(id, tournamentData);
+        console.log("Tournoi mis à jour avec succès:", updated);
+        
         if (Array.isArray(this.tournaments)) {
           const index = this.tournaments.findIndex(t => t.id === id)
           if (index !== -1) {
@@ -219,6 +236,7 @@ export const useTournamentStore = defineStore('tournament', {
         }
         return updated
       } catch (error) {
+        console.error('Erreur complète lors de la mise à jour:', error);
         this.error = 'Erreur lors de la mise à jour du tournoi'
         throw error
       } finally {

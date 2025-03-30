@@ -187,9 +187,7 @@ async def pause_tournament(
     background_tasks.add_task(
         notify_pause_status,
         tournament_id,
-        True,
-        tournament.seconds_remaining,
-        tournament.level_duration
+        True
     )
 
     return {"status": "success", "message": "Tournoi en pause"}
@@ -223,9 +221,7 @@ async def resume_tournament(
     background_tasks.add_task(
         notify_pause_status,
         tournament_id,
-        False,
-        tournament.seconds_remaining,
-        tournament.level_duration
+        False
     )
 
     return {"status": "success", "message": "Tournoi repris"}

@@ -587,6 +587,8 @@ const setNextTournamentName = () => {
 const initializeForm = () => {
   if (props.tournament) {
     try {
+      console.log("Initialisation du formulaire avec tournoi:", props.tournament);
+      
       const tournamentDate = new Date(props.tournament.date);
       if (isNaN(tournamentDate.getTime())) {
         throw new Error("Date de tournoi invalide");
@@ -608,22 +610,52 @@ const initializeForm = () => {
         selectedMinute.value = '55'; // Maximum 55 minutes
       }
       
+      // Extraire les IDs de configuration de façon robuste
+      let configId = null;
+      if (props.tournament.configuration_id !== undefined && props.tournament.configuration_id !== null) {
+        configId = props.tournament.configuration_id;
+      } else if (props.tournament.configuration && props.tournament.configuration.id !== undefined) {
+        configId = props.tournament.configuration.id;
+      }
+      
+      let soundId = null;
+      if (props.tournament.sound_configuration_id !== undefined && props.tournament.sound_configuration_id !== null) {
+        soundId = props.tournament.sound_configuration_id;
+      } else if (props.tournament.sound_configuration && props.tournament.sound_configuration.id !== undefined) {
+        soundId = props.tournament.sound_configuration.id;
+      }
+      
+      console.log("IDs extraits:", { configId, soundId });
+      console.log("Configuration complète:", props.tournament.configuration);
+      console.log("Sound configuration complète:", props.tournament.sound_configuration);
+      
       // Mettre à jour les données du formulaire
       formData.value = {
-        ...props.tournament,
+        name: props.tournament.name,
+        tournament_type: props.tournament.tournament_type,
+        buy_in: props.tournament.buy_in,
+        max_players: props.tournament.max_players,
+        players_per_table: props.tournament.players_per_table,
+        configuration_id: configId,
+        sound_configuration_id: soundId,
+        league_id: props.tournament.league_id,
         date: selectedDate.value,
-        time: `${selectedHour.value}:${selectedMinute.value}`
+        time: `${selectedHour.value}:${selectedMinute.value}`,
+        notes: props.tournament.notes || ''
       };
       
       // Initialiser dateTimeValue
       dateTimeValue.value = tournamentDate.toISOString();
       
-      console.log("Formulaire initialisé:", {
+      console.log("Formulaire initialisé avec le tournoi existant:", {
+        formData: formData.value,
         selectedDate: selectedDate.value,
         selectedHour: selectedHour.value,
         selectedMinute: selectedMinute.value,
         dateTimeValue: dateTimeValue.value,
-        dateObject: dateObject.value
+        dateObject: dateObject.value,
+        configId: configId,
+        soundId: soundId
       });
     } catch (e) {
       console.error("Erreur lors de l'initialisation du formulaire:", e);
