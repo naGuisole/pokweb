@@ -64,7 +64,7 @@
           </v-col>
         </v-row>
 
-        <!-- Date et heure avec v-date-picker -->
+        <!-- Date et heure avec v-date-picker intégré -->
         <div class="section-title d-flex align-center mt-4 mb-2">
           <v-icon icon="mdi-calendar-clock" color="primary" class="mr-2" />
           <h3 class="text-h6 font-weight-medium">Planification</h3>
@@ -90,70 +90,70 @@
                   readonly
                   v-bind="props"
                   :rules="[v => !!dateTimeValue || 'La date et l\'heure sont requises']"
+                  persistent-hint
+                  hint="Cliquez pour sélectionner la date et l'heure"
                 ></v-text-field>
               </template>
-              <v-date-picker
-                v-model="selectedDate"
-                :first-day-of-week="1"
-                locale="fr"
-                @update:model-value="handleDateChange"
-              >
-                <v-spacer></v-spacer>
-                <v-btn
-                  text
-                  color="primary"
-                  @click="showDatePicker = false"
-                >
-                  Annuler
-                </v-btn>
-                <v-btn
-                  text
-                  color="primary"
-                  @click="confirmDate"
-                >
-                  OK
-                </v-btn>
-              </v-date-picker>
-            </v-menu>
-            
-            <!-- Sélecteur d'heure (vous pouvez ajouter cela séparément) -->
-            <v-dialog
-              v-model="showTimePicker"
-              max-width="290px"
-            >
-              <template v-slot:activator="{ props }">
-                <v-btn
-                  variant="text"
-                  v-bind="props"
-                  color="primary"
-                  class="mt-2"
-                >
-                  Changer l'heure: {{ selectedTime }}
-                </v-btn>
-              </template>
-              <v-card>
-                <v-card-title>Sélectionner l'heure</v-card-title>
+              
+              <v-card min-width="300px">
+                <v-card-title class="text-center">
+                  Sélectionner la date et l'heure
+                </v-card-title>
+                
                 <v-card-text>
-                  <v-select
-                    v-model="selectedTime"
-                    label="Heure"
-                    :items="timeOptions"
-                    variant="outlined"
-                    density="comfortable"
-                  ></v-select>
+                  <v-date-picker
+                    v-model="selectedDate"
+                    :first-day-of-week="1"
+                    locale="fr-FR"
+                    width="100%"
+                  ></v-date-picker>
+                  
+                  <v-divider class="my-4"></v-divider>
+                  
+                  <v-row align="center" class="mx-0">
+                    <v-col cols="4">
+                      <v-select
+                        v-model="selectedHour"
+                        :items="hourOptions"
+                        label="Heure"
+                        variant="outlined"
+                        density="comfortable"
+                      ></v-select>
+                    </v-col>
+                    <v-col cols="1" class="text-center pa-0">
+                      <span class="text-h5">:</span>
+                    </v-col>
+                    <v-col cols="4">
+                      <v-select
+                        v-model="selectedMinute"
+                        :items="minuteOptions"
+                        label="Minute"
+                        variant="outlined"
+                        density="comfortable"
+                      ></v-select>
+                    </v-col>
+                  </v-row>
                 </v-card-text>
+                
                 <v-card-actions>
                   <v-spacer></v-spacer>
                   <v-btn
                     text
-                    color="primary"
-                    @click="confirmTime"
+                    color="grey-darken-1"
+                    @click="showDatePicker = false"
                   >
-                    OK
+                    Annuler
+                  </v-btn>
+                  <v-btn
+                    text
+                    color="primary"
+                    @click="confirmDateTime"
+                  >
+                    Confirmer
                   </v-btn>
                 </v-card-actions>
               </v-card>
-            </v-dialog>
+            </v-menu>
           </v-col>
         </v-row>
 
@@ -345,18 +345,20 @@ const valid = ref(false)
 // Valeur pour le date-time picker
 const dateTimeValue = ref(null)
 
-// Variables pour le nouveau sélecteur de date
+// Variables pour le sélecteur de date et heure
 const showDatePicker = ref(false)
-const showTimePicker = ref(false)
 const selectedDate = ref(null)
-const selectedTime = ref('20:00')
+const selectedHour = ref('20')
+const selectedMinute = ref('00')
 const datePicked = ref(false)
 
-// Options d'heures pour le sélecteur
-const timeOptions = Array.from({length: 24 * 6}, (_, i) => {
-  const hour = Math.floor(i / 6);
-  const minute = (i % 6) * 10;
-  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+// Options pour les sélecteurs d'heure et de minute
+const hourOptions = Array.from({length: 24}, (_, i) => {
+  return i.toString().padStart(2, '0');
+})
+
+const minuteOptions = Array.from({length: 12}, (_, i) => {
+  return (i * 5).toString().padStart(2, '0');
 })
 
 // État de la snackbar
@@ -403,43 +405,78 @@ const formData = ref({
 // Computed pour la date formatée
 const formattedDateTime = computed(() => {
   if (!selectedDate.value) return '';
-  return format(new Date(`${selectedDate.value}T${selectedTime.value}`), 'PPP à HH:mm', { locale: fr });
-})
-
-// Fonction pour confirmer la date sélectionnée
-const confirmDate = () => {
-  showDatePicker.value = false;
-  if (datePicked.value && selectedDate.value) {
-    formData.value.date = selectedDate.value;
-    // Assurez-vous de créer correctement l'objet Date
-    try {
-      const dateTime = new Date(`${selectedDate.value}T${selectedTime.value}`);
-      // Vérifier si la date est valide
-      if (!isNaN(dateTime.getTime())) {
-        dateTimeValue.value = dateTime.toISOString();
-      } else {
-        console.error("Date invalide:", selectedDate.value, selectedTime.value);
-      }
-    } catch (e) {
-      console.error("Erreur lors de la création de la date:", e);
+  
+  try {
+    // Construire la chaîne de date et d'heure
+    const timeStr = `${selectedHour.value}:${selectedMinute.value}`;
+    
+    // Créer les composants de date individuels pour éviter les problèmes de fuseau horaire
+    const dateParts = selectedDate.value.split('-');
+    if (dateParts.length !== 3) return 'Format de date invalide';
+    
+    const year = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1; // JavaScript mois sont 0-11
+    const day = parseInt(dateParts[2]);
+    
+    const timeParts = timeStr.split(':');
+    if (timeParts.length !== 2) return 'Format d\'heure invalide';
+    
+    const hours = parseInt(timeParts[0]);
+    const minutes = parseInt(timeParts[1]);
+    
+    // Créer la date en spécifiant tous les composants individuellement
+    const dateObj = new Date(year, month, day, hours, minutes, 0, 0);
+    
+    // Vérifier si la date est valide
+    if (isNaN(dateObj.getTime())) {
+      console.error("Date invalide créée:", dateObj);
+      return 'Date invalide';
     }
+    
+    // Utiliser date-fns pour formatter la date en français
+    return format(dateObj, 'EEEE d MMMM yyyy à HH:mm', { locale: fr });
+  } catch (e) {
+    console.error("Erreur lors du formatage de la date:", e);
+    return 'Erreur de date';
   }
-}
+});
 
-const handleDateChange = (newDate) => {
-  datePicked.value = true;
-  // S'assurer que c'est une chaîne au format YYYY-MM-DD
-  selectedDate.value = newDate;
-}
-
-// Fonction pour confirmer l'heure sélectionnée
-const confirmTime = () => {
-  showTimePicker.value = false;
-  formData.value.time = selectedTime.value;
-  if (selectedDate.value) {
-    const dateTime = new Date(`${selectedDate.value}T${selectedTime.value}`);
-    dateTimeValue.value = dateTime.toISOString();
+// Fonction pour confirmer la date et l'heure
+const confirmDateTime = () => {
+  try {
+    // Construire l'heure complète
+    const timeStr = `${selectedHour.value}:${selectedMinute.value}`;
+    
+    // Mettre à jour les données du formulaire
+    formData.value.date = selectedDate.value;
+    formData.value.time = timeStr;
+    
+    // Créer la date correctement en utilisant des composants individuels
+    const dateParts = selectedDate.value.split('-');
+    const year = parseInt(dateParts[0]);
+    const month = parseInt(dateParts[1]) - 1; // JavaScript mois sont 0-11
+    const day = parseInt(dateParts[2]);
+    
+    const timeParts = timeStr.split(':');
+    const hours = parseInt(timeParts[0]);
+    const minutes = parseInt(timeParts[1]);
+    
+    const dateTime = new Date(year, month, day, hours, minutes, 0, 0);
+    
+    // Vérifier si la date est valide
+    if (!isNaN(dateTime.getTime())) {
+      dateTimeValue.value = dateTime.toISOString();
+      datePicked.value = true;
+      console.log("Date validée et enregistrée:", dateTimeValue.value);
+    } else {
+      console.error("Date invalide lors de la confirmation:", dateTime);
+    }
+  } catch (e) {
+    console.error("Erreur lors de la confirmation de la date:", e);
   }
+  
+  // Fermer le sélecteur
+  showDatePicker.value = false;
 }
 
 // Computed
@@ -554,20 +591,36 @@ const setNextTournamentName = () => {
 
 const initializeForm = () => {
   if (props.tournament) {
-    const tournamentDate = new Date(props.tournament.date)
+    const tournamentDate = new Date(props.tournament.date);
     
-    // Initialiser les valeurs de date et heure
-    selectedDate.value = format(tournamentDate, 'yyyy-MM-dd')
-    selectedTime.value = format(tournamentDate, 'HH:mm')
+    // Initialiser les valeurs de date et heure au format correct
+    selectedDate.value = format(tournamentDate, 'yyyy-MM-dd');
+    selectedHour.value = format(tournamentDate, 'HH');
+    selectedMinute.value = format(tournamentDate, 'mm');
+    
+    // Ajuster minutes à l'intervalle de 5 minutes le plus proche si nécessaire
+    const minute = parseInt(selectedMinute.value);
+    const roundedMinute = Math.round(minute / 5) * 5;
+    selectedMinute.value = roundedMinute.toString().padStart(2, '0');
+    if (roundedMinute >= 60) {
+      selectedMinute.value = '55'; // Maximum 55 minutes
+    }
     
     formData.value = {
       ...props.tournament,
-      date: format(tournamentDate, 'yyyy-MM-dd'),
-      time: format(tournamentDate, 'HH:mm')
-    }
+      date: selectedDate.value,
+      time: `${selectedHour.value}:${selectedMinute.value}`
+    };
     
     // Initialiser dateTimeValue
-    dateTimeValue.value = tournamentDate.toISOString()
+    dateTimeValue.value = tournamentDate.toISOString();
+    
+    console.log("Formulaire initialisé:", {
+      selectedDate: selectedDate.value,
+      selectedHour: selectedHour.value,
+      selectedMinute: selectedMinute.value,
+      dateTimeValue: dateTimeValue.value
+    });
   }
 }
 
@@ -575,16 +628,33 @@ const handleSubmit = async () => {
   if (!form.value.validate()) return
 
   try {
-    // Combiner date et heure
-    const dateTime = new Date(`${formData.value.date}T${formData.value.time}`)
+    // Vérifier que nous avons une date valide
+    if (!dateTimeValue.value) {
+      // Si dateTimeValue n'est pas défini, essayer de le générer à partir des sélections
+      const dateParts = selectedDate.value.split('-');
+      const year = parseInt(dateParts[0]);
+      const month = parseInt(dateParts[1]) - 1; // JavaScript mois sont 0-11
+      const day = parseInt(dateParts[2]);
+      
+      const hours = parseInt(selectedHour.value);
+      const minutes = parseInt(selectedMinute.value);
+      
+      const dateTime = new Date(year, month, day, hours, minutes, 0, 0);
+      
+      if (!isNaN(dateTime.getTime())) {
+        dateTimeValue.value = dateTime.toISOString();
+      } else {
+        throw new Error("Date invalide. Veuillez sélectionner une date et une heure valides.");
+      }
+    }
     
     const tournamentData = {
       ...formData.value,
-      date: dateTime.toISOString(),
+      date: dateTimeValue.value,
       league_id: authStore.user?.league_id  
     }
     
-    delete tournamentData.time  // Supprime le champ time car on utilise dateTime
+    delete tournamentData.time  // Supprime le champ time car on utilise dateTimeValue
 
     if (!tournamentData.league_id) {
       showError("Vous devez être membre d'une ligue pour créer un tournoi")
@@ -650,13 +720,25 @@ onMounted(async () => {
   
   // Initialiser la date et l'heure par défaut
   const now = new Date();
-  now.setHours(20, 0, 0, 0); // Par défaut à 20:00
   
-  // Formater comme YYYY-MM-DD sans utiliser date-fns
-  selectedDate.value = now.toISOString().split('T')[0]; // Format YYYY-MM-DD
-  selectedTime.value = '20:00';
+  // Par défaut à 20:00
+  now.setHours(20, 0, 0, 0);
   
+  // Formater comme YYYY-MM-DD
+  selectedDate.value = now.toISOString().split('T')[0];
+  selectedHour.value = '20';
+  selectedMinute.value = '00';
+  
+  // Sauvegarder la date complète
   dateTimeValue.value = now.toISOString();
+  
+  // Log pour debug
+  console.log("Date initiale:", {
+    selectedDate: selectedDate.value,
+    selectedHour: selectedHour.value,
+    selectedMinute: selectedMinute.value,
+    dateTimeValue: dateTimeValue.value
+  });
   
   if (editMode.value) {
     initializeForm();
