@@ -13,10 +13,24 @@ import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import '@mdi/font/css/materialdesignicons.css'
+import { fr } from 'vuetify/locale'
+// Import de l'adaptateur de date
+import DayJsAdapter from '@date-io/dayjs'
+import 'dayjs/locale/fr'
 
 const vuetify = createVuetify({
     components,
     directives,
+      locale: {
+        locale: 'fr',
+        messages: { fr }
+      },
+      date: {
+        adapter: DayJsAdapter,
+        locale: {
+          fr,  // configuration pour la localisation française
+        },
+      },
     theme: {
         defaultTheme: 'light'
       }
