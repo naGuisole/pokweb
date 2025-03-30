@@ -153,6 +153,43 @@ def register_player(db: Session, tournament_id: int, user_id: int) -> Tournament
     
     return participation
 
+
+def unregister_player(db: Session, tournament_id: int, user_id: int) -> bool:
+    """
+    Désinscrit un joueur d'un tournoi
+
+    Args:
+        db (Session): Session de base de données
+        tournament_id (int): ID du tournoi
+        user_id (int): ID de l'utilisateur à désinscrire
+
+    Returns:
+        bool: True si la désinscription a réussi, False sinon
+    """
+    # Vérifier que le tournoi existe et est en phase PLANNED
+    tournament = db.query(Tournament).filter(
+        Tournament.id == tournament_id,
+        Tournament.status == TournamentStatus.PLANNED
+    ).first()
+
+    if not tournament:
+        return False
+
+    # Trouver la participation de l'utilisateur
+    participation = db.query(TournamentParticipation).filter(
+        TournamentParticipation.tournament_id == tournament_id,
+        TournamentParticipation.user_id == user_id
+    ).first()
+
+    if not participation:
+        return False
+
+    # Supprimer la participation
+    db.delete(participation)
+    db.commit()
+
+    return True
+
 def process_elimination(
     db: Session,
     tournament_id: int,

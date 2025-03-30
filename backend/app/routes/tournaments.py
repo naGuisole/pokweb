@@ -102,6 +102,29 @@ async def register_to_tournament(
         )
 
 
+@router.post("/{tournament_id}/unregister")
+async def unregister_from_tournament(
+        tournament_id: int,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user)
+):
+    """Désinscrit le joueur courant du tournoi"""
+    try:
+        result = tournament_crud.unregister_player(db, tournament_id, current_user.id)
+
+        if not result:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Impossible de se désinscrire (tournoi non trouvé, déjà commencé ou vous n'êtes pas inscrit)"
+            )
+
+        return {"status": "success", "message": "Désinscription réussie"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erreur lors de la désinscription: {str(e)}"
+        )
+
 @router.post("/{tournament_id}/start")
 async def start_tournament(
         tournament_id: int,

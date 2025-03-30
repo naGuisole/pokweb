@@ -178,10 +178,10 @@
   })
   
   const isRegistered = computed(() => {
-    return props.tournament.participations?.some(
-      player => player.id === authStore.user?.id
-    )
-  })
+  return props.tournament.participations?.some(
+    player => player.user?.id === authStore.user?.id
+  )
+})
   
   const formattedDate = computed(() => {
     return format(new Date(props.tournament.date), 'PPP à HH:mm', { locale: fr })

@@ -86,7 +86,7 @@ export const useTournamentStore = defineStore('tournament', {
       
       if (!tournament || !Array.isArray(tournament.participations)) return false
       
-      return tournament.participations.some(player => player.id === userId)
+      return tournament.participations.some(player => player.user?.id === userId)
     },
 
     // Active players in the current tournament
