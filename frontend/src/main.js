@@ -18,8 +18,8 @@ import '@mdi/font/css/materialdesignicons.css'
 import { fr } from 'vuetify/locale'
 
 // Configuration de date-fns pour le format français
-import { fr as dateFnsFr } from 'date-fns/locale'
-import DateFnsAdapter from '@date-io/date-fns'
+import DayJsAdapter from '@date-io/dayjs'
+import {fr as frDayJs} from 'dayjs/locale/fr'
 
 const vuetify = createVuetify({
   components,
@@ -30,7 +30,10 @@ const vuetify = createVuetify({
     messages: { fr }
   },
   date: {
-    adapter: DateFnsAdapter,
+    adapter: DayJsAdapter,
+    locale: {
+      frDayJs,  // configuration pour la localisation française
+    },
   },
   theme: {
     defaultTheme: 'light'
