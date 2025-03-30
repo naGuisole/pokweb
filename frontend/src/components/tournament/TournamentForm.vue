@@ -104,8 +104,9 @@
                   <v-date-picker
                     v-model="selectedDate"
                     :first-day-of-week="1"
-                    locale="fr-FR"
+                    locale="fr"
                     width="100%"
+                    @update:model-value="handleDateSelection"
                   ></v-date-picker>
                   
                   <v-divider class="my-4"></v-divider>
@@ -347,10 +348,11 @@ const dateTimeValue = ref(null)
 
 // Variables pour le sélecteur de date et heure
 const showDatePicker = ref(false)
-const selectedDate = ref(null)
+const selectedDate = ref(null) // Date au format 'YYYY-MM-DD'
 const selectedHour = ref('20')
 const selectedMinute = ref('00')
 const datePicked = ref(false)
+const dateObject = ref(new Date()) // Objet Date JavaScript pour manipulations
 
 // Options pour les sélecteurs d'heure et de minute
 const hourOptions = Array.from({length: 24}, (_, i) => {
@@ -404,72 +406,65 @@ const formData = ref({
 
 // Computed pour la date formatée
 const formattedDateTime = computed(() => {
-  if (!selectedDate.value) return '';
+  if (!dateObject.value) return '';
   
   try {
-    // Construire la chaîne de date et d'heure
-    const timeStr = `${selectedHour.value}:${selectedMinute.value}`;
-    
-    // Créer les composants de date individuels pour éviter les problèmes de fuseau horaire
-    const dateParts = selectedDate.value.split('-');
-    if (dateParts.length !== 3) return 'Format de date invalide';
-    
-    const year = parseInt(dateParts[0]);
-    const month = parseInt(dateParts[1]) - 1; // JavaScript mois sont 0-11
-    const day = parseInt(dateParts[2]);
-    
-    const timeParts = timeStr.split(':');
-    if (timeParts.length !== 2) return 'Format d\'heure invalide';
-    
-    const hours = parseInt(timeParts[0]);
-    const minutes = parseInt(timeParts[1]);
-    
-    // Créer la date en spécifiant tous les composants individuellement
-    const dateObj = new Date(year, month, day, hours, minutes, 0, 0);
-    
-    // Vérifier si la date est valide
-    if (isNaN(dateObj.getTime())) {
-      console.error("Date invalide créée:", dateObj);
-      return 'Date invalide';
-    }
-    
-    // Utiliser date-fns pour formatter la date en français
-    return format(dateObj, 'EEEE d MMMM yyyy à HH:mm', { locale: fr });
+    // Utiliser l'objet Date directement pour le formatage
+    return format(dateObject.value, 'EEEE d MMMM yyyy à HH:mm', { locale: fr });
   } catch (e) {
     console.error("Erreur lors du formatage de la date:", e);
     return 'Erreur de date';
   }
 });
 
+// Méthode pour gérer la sélection de date
+const handleDateSelection = (newDate) => {
+  console.log("Date sélectionnée:", newDate);
+  
+  // Mettre à jour dateObject sans changer l'heure
+  if (typeof newDate === 'string' && newDate.includes('-')) {
+    const [year, month, day] = newDate.split('-').map(Number);
+    const newDateObj = new Date(dateObject.value);
+    newDateObj.setFullYear(year, month - 1, day);
+    dateObject.value = newDateObj;
+  }
+}
+
 // Fonction pour confirmer la date et l'heure
 const confirmDateTime = () => {
   try {
-    // Construire l'heure complète
-    const timeStr = `${selectedHour.value}:${selectedMinute.value}`;
+    // Obtenir les heures et minutes 
+    const hours = parseInt(selectedHour.value);
+    const minutes = parseInt(selectedMinute.value);
     
-    // Mettre à jour les données du formulaire
-    formData.value.date = selectedDate.value;
-    formData.value.time = timeStr;
-    
-    // Créer la date correctement en utilisant des composants individuels
-    const dateParts = selectedDate.value.split('-');
-    const year = parseInt(dateParts[0]);
-    const month = parseInt(dateParts[1]) - 1; // JavaScript mois sont 0-11
-    const day = parseInt(dateParts[2]);
-    
-    const timeParts = timeStr.split(':');
-    const hours = parseInt(timeParts[0]);
-    const minutes = parseInt(timeParts[1]);
-    
-    const dateTime = new Date(year, month, day, hours, minutes, 0, 0);
+    // Mettre à jour l'objet Date en fonction de la date sélectionnée et de l'heure
+    if (typeof selectedDate.value === 'string') {
+      // Si c'est déjà une chaîne au format YYYY-MM-DD
+      const [year, month, day] = selectedDate.value.split('-').map(Number);
+      dateObject.value = new Date(year, month - 1, day, hours, minutes, 0, 0);
+    } else if (selectedDate.value instanceof Date) {
+      // Si c'est déjà un objet Date
+      dateObject.value = new Date(selectedDate.value);
+      dateObject.value.setHours(hours, minutes, 0, 0);
+    } else if (selectedDate.value) {
+      // Si c'est un autre format, essayer de le convertir
+      const date = new Date(selectedDate.value);
+      if (!isNaN(date.getTime())) {
+        dateObject.value = date;
+        dateObject.value.setHours(hours, minutes, 0, 0);
+      }
+    }
     
     // Vérifier si la date est valide
-    if (!isNaN(dateTime.getTime())) {
-      dateTimeValue.value = dateTime.toISOString();
+    if (!isNaN(dateObject.value.getTime())) {
+      // Mettre à jour les valeurs du formulaire
+      formData.value.date = format(dateObject.value, 'yyyy-MM-dd');
+      formData.value.time = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      dateTimeValue.value = dateObject.value.toISOString();
       datePicked.value = true;
       console.log("Date validée et enregistrée:", dateTimeValue.value);
     } else {
-      console.error("Date invalide lors de la confirmation:", dateTime);
+      console.error("Date invalide lors de la confirmation:", dateObject.value);
     }
   } catch (e) {
     console.error("Erreur lors de la confirmation de la date:", e);
@@ -591,36 +586,49 @@ const setNextTournamentName = () => {
 
 const initializeForm = () => {
   if (props.tournament) {
-    const tournamentDate = new Date(props.tournament.date);
-    
-    // Initialiser les valeurs de date et heure au format correct
-    selectedDate.value = format(tournamentDate, 'yyyy-MM-dd');
-    selectedHour.value = format(tournamentDate, 'HH');
-    selectedMinute.value = format(tournamentDate, 'mm');
-    
-    // Ajuster minutes à l'intervalle de 5 minutes le plus proche si nécessaire
-    const minute = parseInt(selectedMinute.value);
-    const roundedMinute = Math.round(minute / 5) * 5;
-    selectedMinute.value = roundedMinute.toString().padStart(2, '0');
-    if (roundedMinute >= 60) {
-      selectedMinute.value = '55'; // Maximum 55 minutes
+    try {
+      const tournamentDate = new Date(props.tournament.date);
+      if (isNaN(tournamentDate.getTime())) {
+        throw new Error("Date de tournoi invalide");
+      }
+      
+      // Mettre à jour l'objet date principal
+      dateObject.value = tournamentDate;
+      
+      // Initialiser les valeurs de date et heure au format correct
+      selectedDate.value = format(tournamentDate, 'yyyy-MM-dd');
+      selectedHour.value = format(tournamentDate, 'HH');
+      selectedMinute.value = format(tournamentDate, 'mm');
+      
+      // Ajuster minutes à l'intervalle de 5 minutes le plus proche si nécessaire
+      const minute = parseInt(selectedMinute.value);
+      const roundedMinute = Math.round(minute / 5) * 5;
+      selectedMinute.value = roundedMinute.toString().padStart(2, '0');
+      if (roundedMinute >= 60) {
+        selectedMinute.value = '55'; // Maximum 55 minutes
+      }
+      
+      // Mettre à jour les données du formulaire
+      formData.value = {
+        ...props.tournament,
+        date: selectedDate.value,
+        time: `${selectedHour.value}:${selectedMinute.value}`
+      };
+      
+      // Initialiser dateTimeValue
+      dateTimeValue.value = tournamentDate.toISOString();
+      
+      console.log("Formulaire initialisé:", {
+        selectedDate: selectedDate.value,
+        selectedHour: selectedHour.value,
+        selectedMinute: selectedMinute.value,
+        dateTimeValue: dateTimeValue.value,
+        dateObject: dateObject.value
+      });
+    } catch (e) {
+      console.error("Erreur lors de l'initialisation du formulaire:", e);
+      showError("Erreur d'initialisation de la date du tournoi");
     }
-    
-    formData.value = {
-      ...props.tournament,
-      date: selectedDate.value,
-      time: `${selectedHour.value}:${selectedMinute.value}`
-    };
-    
-    // Initialiser dateTimeValue
-    dateTimeValue.value = tournamentDate.toISOString();
-    
-    console.log("Formulaire initialisé:", {
-      selectedDate: selectedDate.value,
-      selectedHour: selectedHour.value,
-      selectedMinute: selectedMinute.value,
-      dateTimeValue: dateTimeValue.value
-    });
   }
 }
 
@@ -629,22 +637,35 @@ const handleSubmit = async () => {
 
   try {
     // Vérifier que nous avons une date valide
-    if (!dateTimeValue.value) {
-      // Si dateTimeValue n'est pas défini, essayer de le générer à partir des sélections
-      const dateParts = selectedDate.value.split('-');
-      const year = parseInt(dateParts[0]);
-      const month = parseInt(dateParts[1]) - 1; // JavaScript mois sont 0-11
-      const day = parseInt(dateParts[2]);
-      
-      const hours = parseInt(selectedHour.value);
-      const minutes = parseInt(selectedMinute.value);
-      
-      const dateTime = new Date(year, month, day, hours, minutes, 0, 0);
-      
-      if (!isNaN(dateTime.getTime())) {
-        dateTimeValue.value = dateTime.toISOString();
+    if (!dateTimeValue.value || !dateObject.value || isNaN(dateObject.value.getTime())) {
+      // Si nous n'avons pas de date valide, essayer de la construire
+      if (selectedDate.value && selectedHour.value && selectedMinute.value) {
+        let year, month, day;
+        
+        if (typeof selectedDate.value === 'string' && selectedDate.value.includes('-')) {
+          [year, month, day] = selectedDate.value.split('-').map(Number);
+          month -= 1; // Ajuster pour le format JavaScript (0-11)
+        } else if (selectedDate.value instanceof Date) {
+          year = selectedDate.value.getFullYear();
+          month = selectedDate.value.getMonth();
+          day = selectedDate.value.getDate();
+        } else {
+          throw new Error("Format de date non pris en charge");
+        }
+        
+        const hours = parseInt(selectedHour.value);
+        const minutes = parseInt(selectedMinute.value);
+        
+        const dateTime = new Date(year, month, day, hours, minutes, 0, 0);
+        
+        if (!isNaN(dateTime.getTime())) {
+          dateObject.value = dateTime;
+          dateTimeValue.value = dateTime.toISOString();
+        } else {
+          throw new Error("Date invalide. Veuillez sélectionner une date et une heure valides.");
+        }
       } else {
-        throw new Error("Date invalide. Veuillez sélectionner une date et une heure valides.");
+        throw new Error("Veuillez sélectionner une date et une heure.");
       }
     }
     
@@ -724,8 +745,9 @@ onMounted(async () => {
   // Par défaut à 20:00
   now.setHours(20, 0, 0, 0);
   
-  // Formater comme YYYY-MM-DD
-  selectedDate.value = now.toISOString().split('T')[0];
+  // Initialiser nos variables
+  dateObject.value = now;
+  selectedDate.value = format(now, 'yyyy-MM-dd');
   selectedHour.value = '20';
   selectedMinute.value = '00';
   
@@ -737,7 +759,8 @@ onMounted(async () => {
     selectedDate: selectedDate.value,
     selectedHour: selectedHour.value,
     selectedMinute: selectedMinute.value,
-    dateTimeValue: dateTimeValue.value
+    dateTimeValue: dateTimeValue.value,
+    dateObject: dateObject.value
   });
   
   if (editMode.value) {
