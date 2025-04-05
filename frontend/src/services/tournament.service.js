@@ -5,21 +5,25 @@ export const tournamentService = {
   // Récupération des tournois
   async getTournaments(filters = {}) {
     const response = await api.get('/tournaments/', { params: filters })
+    console.log("Tournois récupérés avec configurations:", response.data);
     return response.data
   },
 
   async getTournament(id) {
     const response = await api.get(`/tournaments/${id}`)
+    console.log("Tournoi détaillé récupéré avec configurations:", response.data);
     return response.data
   },
 
   // Gestion des tournois
   async createTournament(tournamentData) {
+    console.log("Création du tournoi avec données:", tournamentData);
     const response = await api.post('/tournaments/', tournamentData)
     return response.data
   },
 
   async updateTournament(id, tournamentData) {
+    console.log("Mise à jour du tournoi avec données:", tournamentData);
     const response = await api.put(`/tournaments/${id}`, tournamentData)
     return response.data
   },

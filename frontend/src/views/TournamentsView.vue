@@ -203,34 +203,25 @@ const createTournament = () => {
 }
 
 const editTournament = async (tournament) => {
-    try {
-      loading.value = true;
-      
-      console.log("Tournoi initial pour édition:", tournament);
-      
-      // Récupérer les données complètes du tournoi pour s'assurer d'avoir toutes les infos
-      const fullTournament = await tournamentStore.fetchTournament(tournament.id);
-      console.log("Données complètes du tournoi pour édition:", fullTournament);
-      
-      // S'assurer que nous avons bien les IDs de configuration directs
-      if (!fullTournament.configuration_id && fullTournament.configuration) {
-        fullTournament.configuration_id = fullTournament.configuration.id;
-      }
-      
-      if (!fullTournament.sound_configuration_id && fullTournament.sound_configuration) {
-        fullTournament.sound_configuration_id = fullTournament.sound_configuration.id;
-      }
-      
-      // Stocker les données complètes du tournoi
-      editingTournament.value = fullTournament;
-      showTournamentForm.value = true;
-    } catch (error) {
-      console.error("Erreur lors de la récupération des données du tournoi:", error);
-      showError("Erreur lors de la récupération des données du tournoi");
-    } finally {
-      loading.value = false;
-    }
+  try {
+    loading.value = true;
+    
+    console.log("Tournoi initial pour édition:", tournament);
+    
+    // Récupérer les données complètes du tournoi pour s'assurer d'avoir toutes les infos
+    const fullTournament = await tournamentStore.fetchTournament(tournament.id);
+    console.log("Données complètes du tournoi pour édition:", fullTournament);
+    
+    // Stocker les données complètes du tournoi
+    editingTournament.value = fullTournament;
+    showTournamentForm.value = true;
+  } catch (error) {
+    console.error("Erreur lors de la récupération des données du tournoi:", error);
+    showError("Erreur lors de la récupération des données du tournoi");
+  } finally {
+    loading.value = false;
   }
+}
 
 const saveTournament = async (tournamentData) => {
   saving.value = true

@@ -73,28 +73,68 @@ const setupWebSocketListeners = () => {
   // État initial du tournoi
   removeListeners.push(
     websocketService.on('initial_state', (data) => {
-      console.log('Timer: Initial state received', data)
+      console.log('Timer: Initial state received', data);
       
       // Mettre à jour le niveau
       if (data.current_level !== undefined) {
-        currentLevel.value = data.current_level
+        currentLevel.value = data.current_level || 1; // Utiliser 1 par défaut si 0
+        console.log('Setting current level to:', currentLevel.value);
       }
       
       // Configurer le timer avec le temps restant
       if (data.seconds_remaining !== undefined && data.level_duration !== undefined) {
-        timeRemaining.value = data.seconds_remaining
-        totalDuration.value = data.level_duration
-        timerIsSynced.value = true
+        timeRemaining.value = data.seconds_remaining;
+        levelDuration.value = data.level_duration;
+        timerIsSynced.value = true;
         
         // Démarrer ou arrêter le timer selon l'état de pause
         if (!data.paused && !props.isPaused) {
-          startTimer()
+          startTimer();
         } else {
-          stopTimer()
+          stopTimer();
+        }
+      } else {
+        // Si nous n'avons pas de données de timer, initialiser avec la durée du niveau actuel
+        try {
+          // S'assurer que blindsStructure.value est un tableau avant d'utiliser find
+          if (Array.isArray(blindsStructure.value)) {
+            const level = blindsStructure.value.find(l => l.level === currentLevel.value);
+            if (level) {
+              timeRemaining.value = level.duration * 60; // Convertir minutes en secondes
+              levelDuration.value = level.duration * 60;
+              console.log('Initializing timer with level duration:', level.duration, 'minutes');
+            } else {
+              // Fallback avec des valeurs par défaut
+              timeRemaining.value = 20 * 60; // 20 minutes par défaut
+              levelDuration.value = 20 * 60;
+              console.log('No matching level found, using default 20 minutes');
+            }
+          } else {
+            // Fallback si blindsStructure n'est pas un tableau
+            timeRemaining.value = 20 * 60; // 20 minutes par défaut
+            levelDuration.value = 20 * 60;
+            console.log('blindsStructure is not an array, using default 20 minutes');
+            console.log('blindsStructure:', blindsStructure.value);
+          }
+        } catch (error) {
+          console.error('Error initializing timer from blinds structure:', error);
+          timeRemaining.value = 20 * 60; // 20 minutes par défaut
+          levelDuration.value = 20 * 60;
+        }
+        
+        lastUpdateTime.value = Date.now();
+        isPaused.value = data.paused || false;
+
+        // Démarrer le timer si non en pause
+        if (!isPaused.value) {
+          startTimer();
+          console.log('Timer started');
+        } else {
+          console.log('Tournament is paused, timer not started');
         }
       }
     })
-  )
+  );
   
   // Changements de niveau
   removeListeners.push(

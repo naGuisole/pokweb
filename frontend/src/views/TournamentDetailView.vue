@@ -580,21 +580,37 @@ const timerProgressColor = computed(() => {
   return 'primary'
 })
 
+// Correction du computed property blindsStructure
+const blindsStructure = computed(() => {
+  if (!tournament.value) return [];
+  
+  // Vérifier si la configuration existe et a une structure de blindes
+  if (tournament.value.configuration && 
+      tournament.value.configuration.blinds_structure && 
+      tournament.value.configuration.blinds_structure.structure) {
+    return tournament.value.configuration.blinds_structure.structure;
+  }
+  
+  // Fallback au cas où la structure n'est pas disponible
+  console.warn('Structure de blindes non disponible, utilisation des valeurs par défaut');
+  return [
+    {"level":1,"small_blind":5,"big_blind":5,"duration":20},
+    {"level":2,"small_blind":5,"big_blind":10,"duration":20},
+    {"level":3,"small_blind":10,"big_blind":20,"duration":20}
+  ];
+})
+
+// Correction également pour les propriétés qui dépendent de blindsStructure
 const currentBlinds = computed(() => {
-  const level = blindsStructure.value.find(l => l.level === currentLevel.value)
-  if (!level) return 'N/A'
-  return `${level.small_blind} / ${level.big_blind}`
+  const level = blindsStructure.value.find(l => l.level === currentLevel.value);
+  if (!level) return 'N/A';
+  return `${level.small_blind} / ${level.big_blind}`;
 })
 
 const nextBlinds = computed(() => {
-  const nextLevel = blindsStructure.value.find(l => l.level === currentLevel.value + 1)
-  if (!nextLevel) return 'Fin du tournoi'
-  return `${nextLevel.small_blind} / ${nextLevel.big_blind}`
-})
-
-const blindsStructure = computed(() => {
-  if (!tournament.value?.configuration?.blinds_structure) return []
-  return tournament.value.configuration.blinds_structure
+  const nextLevel = blindsStructure.value.find(l => l.level === currentLevel.value + 1);
+  if (!nextLevel) return 'Fin du tournoi';
+  return `${nextLevel.small_blind} / ${nextLevel.big_blind}`;
 })
 
 const blindsHeaders = computed(() => [
@@ -998,10 +1014,20 @@ const resetTimer = async () => {
 
   try {
     // Récupérer la durée du niveau actuel
-    const level = blindsStructure.value.find(l => l.level === currentLevel.value)
-    if (!level) return
-
-    const durationInSeconds = level.duration * 60
+    let durationInSeconds = 20 * 60; // Valeur par défaut: 20 minutes
+    
+    // S'assurer que blindsStructure.value est un tableau avant d'utiliser find
+    if (Array.isArray(blindsStructure.value)) {
+      const level = blindsStructure.value.find(l => l.level === currentLevel.value);
+      if (level) {
+        durationInSeconds = level.duration * 60; // Convertir minutes en secondes
+      } else {
+        console.warn(`Niveau ${currentLevel.value} non trouvé dans la structure, utilisation de la valeur par défaut`);
+      }
+    } else {
+      console.warn('Structure de blindes invalide, utilisation de la valeur par défaut');
+      console.log('blindsStructure:', blindsStructure.value);
+    }
 
     // Mettre à jour le timer sur le serveur
     await tournamentStore.updateTournamentTimer(tournament.value.id, durationInSeconds)
@@ -1492,6 +1518,15 @@ onMounted(async () => {
 
     console.log('Tournament data loaded:', tournament.value)
     console.log('Players:', tournament.value?.participations)
+    
+    // Vérifier si la structure de blindes est disponible
+    if (tournament.value && tournament.value.configuration && 
+        tournament.value.configuration.blinds_structure && 
+        tournament.value.configuration.blinds_structure.structure) {
+      console.log('Blinds structure available:', tournament.value.configuration.blinds_structure.structure);
+    } else {
+      console.warn('Blinds structure not available or incomplete');
+    }
 
     // Set default active tab based on tournament status
     if (tournament.value.status === 'PLANNED') {

@@ -610,7 +610,7 @@ const initializeForm = () => {
         selectedMinute.value = '55'; // Maximum 55 minutes
       }
       
-      // Extraire les IDs de configuration de façon robuste
+      // Extraire les IDs de configuration en utilisant à la fois les IDs directs et les objets de configuration
       let configId = null;
       if (props.tournament.configuration_id !== undefined && props.tournament.configuration_id !== null) {
         configId = props.tournament.configuration_id;

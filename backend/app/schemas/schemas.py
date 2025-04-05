@@ -1,5 +1,5 @@
 # backend/app/schemas/user.py
-from pydantic import BaseModel, EmailStr, Field, validator, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from typing import Optional, Dict, List
 from datetime import datetime
 
@@ -265,35 +265,7 @@ class ParticipationResponse(ParticipationBase):
         from_attributes = True
 
 
-class TournamentResponse(TournamentBase):
-    """
-    Réponse complète pour un tournoi
-    """
-    id: int
-    status: TournamentStatus
-    league_id: int
-    admin_id: int
-    start_time: Optional[datetime]
-    end_time: Optional[datetime]
-    current_level: Optional[int]
-    total_rebuys: Optional[int]
-    prize_pool: Optional[float]
-    clay_token_holder_id: Optional[int]
-    bounty_hunter_id: Optional[int]
-    tables_state: Dict[str, Dict[str, int]]  # Structure des tables
-    participations: List[ParticipationResponse] = Field(default_factory=list)
 
-    class Config:
-        from_attributes = True
-
-
-class TournamentStateUpdate(BaseModel):
-    """
-    Mise à jour de l'état d'un tournoi en cours
-    """
-    current_level: Optional[int] = None
-    tables_state: Optional[Dict[str, Dict[str, int]]] = None
-    paused_at: Optional[datetime] = None
 
 
 class RebuyRequest(BaseModel):
@@ -408,7 +380,7 @@ class TournamentConfigBase(BaseModel):
     tournament_type: str = Field(..., pattern='^(JAPT|CLASSIQUE|MTT)$')
     buy_in: float = Field(..., gt=0)
     is_default: bool = False
-    rebuy_levels: int = Field(0, ge=0)  # Ajouté ici depuis PayoutStructure
+    rebuy_levels: int = Field(0, ge=0)
 
 class TournamentConfigCreate(TournamentConfigBase):
     """
@@ -431,7 +403,38 @@ class TournamentConfigResponse(TournamentConfigBase):
         from_attributes = True
 
 
+class TournamentResponse(TournamentBase):
+    """
+    Réponse complète pour un tournoi
+    """
+    id: int
+    status: TournamentStatus
+    league_id: int
+    admin_id: int
+    start_time: Optional[datetime]
+    end_time: Optional[datetime]
+    current_level: Optional[int]
+    total_rebuys: Optional[int]
+    prize_pool: Optional[float]
+    clay_token_holder_id: Optional[int]
+    bounty_hunter_id: Optional[int]
+    tables_state: Dict[str, Dict[str, int]]  # Structure des tables
+    participations: List[ParticipationResponse] = Field(default_factory=list)
 
+    # Ajout des relations complètes
+    configuration: Optional[TournamentConfigResponse] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TournamentStateUpdate(BaseModel):
+    """
+    Mise à jour de l'état d'un tournoi en cours
+    """
+    current_level: Optional[int] = None
+    tables_state: Optional[Dict[str, Dict[str, int]]] = None
+    paused_at: Optional[datetime] = None
 
 
 # League schemas
