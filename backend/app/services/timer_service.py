@@ -49,9 +49,8 @@ class TournamentTimerService:
                 # Traiter tous les tournois actifs
                 await self._process_active_tournaments()
 
-                # Envoyer des mises à jour périodiques (moins fréquentes)
-                if int(datetime.utcnow().timestamp()) % 5 == 0:  # Toutes les 5 secondes
-                    await self._send_timer_updates()
+                # Envoyer des mises à jour à chaque seconde
+                await self._send_timer_updates()
 
             except Exception as e:
                 logger.error(f"Error in timer service: {e}")
@@ -111,18 +110,14 @@ class TournamentTimerService:
             ).all()
 
             for tournament in tournaments:
-                # Ignorer les tournois sans timer configuré
-                if tournament.seconds_remaining is None or tournament.level_duration is None:
-                    continue
-
-                # Envoyer une mise à jour WebSocket
+                # Envoyer une mise à jour WebSocket même sans timer configuré
                 await notify_timer_tick(
                     tournament.id,
-                    max(0, int(tournament.seconds_remaining)),
-                    tournament.level_duration,
-                    tournament.paused_at is not None
+                    tournament.seconds_remaining or 0,
+                    tournament.level_duration or 0,
+                    tournament.paused_at is not None,
+                    tournament.current_level
                 )
-
         except Exception as e:
             logger.error(f"Error sending timer updates: {e}")
         finally:

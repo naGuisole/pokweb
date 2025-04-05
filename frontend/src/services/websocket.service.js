@@ -1,13 +1,15 @@
 // src/services/websocket.service.js
 class WebSocketService {
   constructor() {
-    this.socket = null
-    this.isConnected = false
-    this.reconnectAttempts = 0
-    this.maxReconnectAttempts = 5
-    this.reconnectInterval = 3000 // 3 secondes
-    this.listeners = {}
-    this.pingInterval = null
+    this.socket = null;
+    this.isConnected = false;
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 10; // Augmenté pour plus de résilience
+    this.reconnectInterval = 3000; // 3 secondes
+    this.baseReconnectInterval = 1000; // Intervalle de base pour le backoff exponentiel
+    this.listeners = {};
+    this.pingInterval = null;
+    this.connectionStatusListeners = []; // Nouveaux listeners pour l'état de connexion
   }
 
   /**
@@ -18,58 +20,94 @@ class WebSocketService {
   connect(tournamentId) {
     return new Promise((resolve, reject) => {
       if (this.socket && this.isConnected) {
-        this.disconnect()
+        this.disconnect();
       }
 
-      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-      
-      // Utiliser directement l'URL du backend au lieu de l'URL courante
-      // Remplacer localhost:5173 par localhost:8000 (ou l'URL correcte de votre backend)
-      // const backendHost = import.meta.env.VITE_API_URL?.replace(/^https?:\/\//, '') || 'localhost:8000'
-      // const wsUrl = `${protocol}://${backendHost}/ws/tournaments/${tournamentId}`
-      
-      const wsUrl = `${protocol}://${window.location.host}/ws/tournaments/${tournamentId}`
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const wsUrl = `${protocol}://${window.location.host}/ws/tournaments/${tournamentId}`;
 
-
-      console.log(`Connecting to WebSocket: ${wsUrl}`)
-      this.socket = new WebSocket(wsUrl)
+      console.log(`Connecting to WebSocket: ${wsUrl}`);
+      this.socket = new WebSocket(wsUrl);
 
       this.socket.onopen = () => {
-        console.log('WebSocket connection established')
-        this.isConnected = true
-        this.reconnectAttempts = 0
-        this.startPingInterval()
-        resolve()
-      }
+        console.log('WebSocket connection established');
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+        this.startPingInterval();
+        this.notifyConnectionStatusChange(true);
+        resolve();
+      };
 
       this.socket.onmessage = (event) => {
         try {
-          const message = JSON.parse(event.data)
-          this.handleMessage(message)
+          const message = JSON.parse(event.data);
+          this.handleMessage(message);
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error)
+          console.error('Error parsing WebSocket message:', error);
         }
-      }
+      };
 
       this.socket.onclose = (event) => {
-        this.isConnected = false
-        this.stopPingInterval()
-        console.log(`WebSocket connection closed: ${event.code} - ${event.reason}`)
+        this.isConnected = false;
+        this.stopPingInterval();
+        this.notifyConnectionStatusChange(false);
+        console.log(`WebSocket connection closed: ${event.code} - ${event.reason}`);
         
+        // Nouvelle logique de backoff exponentiel avec jitter
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
-          this.reconnectAttempts++
-          console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`)
-          setTimeout(() => this.connect(tournamentId), this.reconnectInterval)
+          this.reconnectAttempts++;
+          
+          // Calculer l'intervalle avec backoff exponentiel et jitter
+          const backoffMs = Math.min(
+            this.baseReconnectInterval * Math.pow(1.5, this.reconnectAttempts),
+            30000 // Max 30 secondes
+          );
+          const jitter = Math.random() * 0.3 + 0.85; // 0.85-1.15
+          const reconnectDelay = Math.floor(backoffMs * jitter);
+          
+          console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts}) in ${reconnectDelay}ms...`);
+          setTimeout(() => this.connect(tournamentId), reconnectDelay);
         } else {
-          console.log('Max reconnect attempts reached')
-          reject(new Error('Failed to connect to tournament updates'))
+          console.log('Max reconnect attempts reached');
+          reject(new Error('Failed to connect to tournament updates'));
         }
-      }
+      };
 
       this.socket.onerror = (error) => {
-        console.error('WebSocket error:', error)
+        console.error('WebSocket error:', error);
+      };
+    });
+  }
+
+  /**
+   * S'abonne aux changements d'état de connexion
+   * @param {Function} callback - Fonction appelée lors des changements
+   */
+  onConnectionStatusChange(callback) {
+    this.connectionStatusListeners.push(callback);
+    // Notifier immédiatement de l'état actuel
+    callback(this.isConnected);
+    
+    // Retourner une fonction pour se désabonner
+    return () => {
+      this.connectionStatusListeners = this.connectionStatusListeners.filter(
+        listener => listener !== callback
+      );
+    };
+  }
+
+  /**
+   * Notifie les listeners des changements d'état de connexion
+   * @param {Boolean} connected - État de connexion
+   */
+  notifyConnectionStatusChange(connected) {
+    this.connectionStatusListeners.forEach(callback => {
+      try {
+        callback(connected);
+      } catch (error) {
+        console.error('Error in connection status listener:', error);
       }
-    })
+    });
   }
 
   /**

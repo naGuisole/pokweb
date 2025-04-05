@@ -478,6 +478,7 @@ const showBreakTableConfirm = ref(false)
 const showBlindsStructure = ref(false)
 const tableToBreak = ref(null)
 const wsConnected = ref(false)
+const connectionStatusListener = ref(null);
 const wsEventListeners = ref([])
 const tournamentData = ref(null)
 
@@ -487,6 +488,7 @@ const timeRemaining = ref(0)
 const levelDuration = ref(0)
 const dealerPosition = ref(0)
 const isPaused = ref(false)
+const pauseRequestInProgress = ref(false);
 const lastUpdateTime = ref(Date.now())
 const timerInterval = ref(null)
 const activePlayers = ref([])
@@ -494,6 +496,8 @@ const eliminatedPlayers = ref([])
 const elapsedTimeRef = ref('00:00:00')
 const currentTimeRef = ref(format(new Date(), 'HH:mm:ss'))
 const clockInterval = ref(null)
+const initialStateReceived = ref(false);
+const syncRequested = ref(false);
 
 // Snackbar pour les notifications
 const snackbar = ref({
@@ -894,6 +898,38 @@ const isPositionOccupied = (tableIndex, position) => {
   return getPlayerAtPosition(tableIndex, position) !== null;
 }
 
+// Fonction pour traiter l'état des tables
+const processTables = (tablesState) => {
+  // Transformer l'état des tables en quelque chose d'utilisable par l'interface
+  // Cette fonction dépendra de la structure exacte de tablesState
+  console.log('Processing tables state:', tablesState);
+  
+  // Par exemple:
+  if (typeof tablesState === 'object') {
+    // Pour chaque joueur actif, attribuer la table et la position
+    activePlayers.value.forEach(player => {
+      player.table = null;
+      player.position = null;
+      
+      // Parcourir les tables
+      Object.entries(tablesState).forEach(([tableKey, positions]) => {
+        const tableIndex = parseInt(tableKey.replace('table_', ''));
+        
+        // Parcourir les positions
+        Object.entries(positions).forEach(([posKey, playerId]) => {
+          const posIndex = parseInt(posKey.replace('position_', ''));
+          
+          // Si le joueur est à cette position
+          if (playerId === player.user_id) {
+            player.table = tableIndex;
+            player.position = posIndex;
+          }
+        });
+      });
+    });
+  }
+};
+
 const handlePositionClick = (tableIndex, position) => {
   // Si l'utilisateur n'est pas admin ou le tournoi n'est pas en cours, ne rien faire
   if (!isAdmin.value || tournament.value?.status !== 'IN_PROGRESS') return
@@ -958,49 +994,33 @@ const showMovePlayerDialog = (tableIndex, position) => {
 
 // Gestion du timer et des niveaux
 const startTimer = () => {
-  console.log('Starting timer with remaining time:', timeRemaining.value);
+  stopTimer(); // S'assurer qu'il n'y a pas déjà un timer actif
   
-  stopTimer(); // Arrêter tout timer existant
-
-  if (isPaused.value) {
-    console.log('Timer not started: tournament is paused');
-    return;
-  }
-
-  if (timeRemaining.value <= 0) {
-    console.log('Timer not started: no time remaining');
-    return;
-  }
-
-  lastUpdateTime.value = Date.now();
-
+  if (isPaused.value) return;
+  
+  // Stocker le timestamp de démarrage pour calcul précis
+  const startTimestamp = Date.now();
+  const initialRemaining = timeRemaining.value;
+  
   timerInterval.value = setInterval(() => {
-    if (timeRemaining.value > 0) {
-      const now = Date.now();
-      const elapsed = (now - lastUpdateTime.value) / 1000;
-      lastUpdateTime.value = now;
-
-      const oldValue = timeRemaining.value;
-      timeRemaining.value = Math.max(0, timeRemaining.value - elapsed);
-      
-      // Log every 5 seconds for debugging
-      if (Math.floor(oldValue / 5) !== Math.floor(timeRemaining.value / 5)) {
-        console.log('Timer update:', timeRemaining.value.toFixed(0), 'seconds remaining');
-      }
-
-      // Si le timer atteint zéro, notifier
-      if (timeRemaining.value === 0) {
-        console.log('Timer reached zero, level complete');
-        levelComplete();
-      }
-    } else {
-      console.log('Timer stopped: no time remaining');
+    // Calculer le temps écoulé depuis le démarrage du timer
+    const elapsed = (Date.now() - startTimestamp) / 1000;
+    
+    // Calculer le temps restant en fonction du temps initial et du temps écoulé
+    timeRemaining.value = Math.max(0, initialRemaining - elapsed);
+    
+    // Si le timer atteint zéro, notifier mais ne pas avancer automatiquement au niveau suivant
+    if (timeRemaining.value === 0) {
+      playLevelEndSound();
       stopTimer();
+      
+      // Pour les admins seulement, proposer de passer au niveau suivant
+      if (isAdmin.value) {
+        showConfirmNextLevel();
+      }
     }
-  }, 1000);
-  
-  console.log('Timer interval started');
-}
+  }, 100); // Mise à jour plus fréquente pour plus de fluidité
+};
 
 const stopTimer = () => {
   if (timerInterval.value) {
@@ -1057,11 +1077,11 @@ const levelComplete = () => {
   stopTimer();
   
   // Passer automatiquement au niveau suivant sans confirmation
-  autoAdvanceToNextLevel();
+  requestNextLevel();
 }
 
-const autoAdvanceToNextLevel = async () => {
-  if (!tournament.value) return;
+const requestNextLevel = async () => {
+  if (!isAdmin.value || !tournament.value) return;
   
   try {
     const nextLevelNumber = currentLevel.value + 1;
@@ -1073,19 +1093,16 @@ const autoAdvanceToNextLevel = async () => {
       return;
     }
     
-    // Si c'est l'admin qui gère ce tournoi, envoyer la mise à jour au serveur
-    if (isAdmin.value) {
-      await tournamentStore.updateTournamentLevel(tournament.value.id, nextLevelNumber);
-      showSuccess(`Passage automatique au niveau ${nextLevelNumber} - Blindes: ${nextLevelData.small_blind}/${nextLevelData.big_blind}`);
-    } else {
-      // Pour les non-admins, attendre que la mise à jour vienne du serveur via WebSocket
-      showInfo('Niveau terminé, passage au niveau suivant...');
-    }
+    // Demander le changement au serveur
+    await tournamentStore.updateTournamentLevel(tournament.value.id, nextLevelNumber);
+    showSuccess(`Passage au niveau ${nextLevelNumber}`);
+    
+    // Le client attend la notification du serveur pour mettre à jour l'interface
   } catch (error) {
-    console.error('Erreur lors du changement automatique de niveau:', error);
+    console.error('Erreur lors de la demande de changement de niveau:', error);
     showError('Erreur lors du changement de niveau');
   }
-}
+};
 
 const confirmNextLevel = () => {
   showNextLevelConfirm.value = true
@@ -1138,28 +1155,26 @@ const showWarning = (text) => {
 }
 
 const togglePause = async () => {
-  if (!isAdmin.value || !tournament.value) return
+  if (!isAdmin.value || !tournament.value || pauseRequestInProgress.value) return;
 
   try {
+    pauseRequestInProgress.value = true;
+    
     if (isPaused.value) {
-      // Reprendre le tournoi
-      await tournamentStore.resumeTournament(tournament.value.id)
-      isPaused.value = false
-      lastUpdateTime.value = Date.now()
-      startTimer()
-      showSuccess('Tournoi repris')
+      // Demander la reprise
+      await tournamentStore.resumeTournament(tournament.value.id);
+      // L'interface sera mise à jour par l'événement WebSocket
     } else {
-      // Mettre en pause le tournoi
-      await tournamentStore.pauseTournament(tournament.value.id)
-      isPaused.value = true
-      stopTimer()
-      showSuccess('Tournoi en pause')
+      // Demander la pause
+      await tournamentStore.pauseTournament(tournament.value.id);
+      // L'interface sera mise à jour par l'événement WebSocket
     }
   } catch (error) {
-    console.error('Erreur lors de la pause/reprise:', error)
-    showError('Erreur lors de la pause/reprise')
+    pauseRequestInProgress.value = false;
+    console.error('Erreur lors de la pause/reprise:', error);
+    showError('Erreur lors de la pause/reprise');
   }
-}
+};
 
 // Gestion des actions des joueurs
 const handleRebuy = (player) => {
@@ -1278,72 +1293,116 @@ const showError = (text) => {
 
 // WebSocket management
 const setupWebSocket = async () => {
-  if (!tournament.value) return
+  if (!tournament.value) return;
   
   // Vérifier si une connexion précédente existe et la fermer
   if (wsConnected.value) {
-    teardownWebSocket()
+    teardownWebSocket();
   }
 
   try {
-    await websocketService.connect(tournament.value.id)
-    wsConnected.value = true
+    await websocketService.connect(tournament.value.id);
+    wsConnected.value = true;
 
     // Setup listeners
-    const removeListeners = []
+    const removeListeners = [];
 
-    // Initial state
+    // Initial state avec gestion améliorée
     removeListeners.push(
       websocketService.on('initial_state', (data) => {
         console.log('Initial state received:', data);
         
-        // Vérifier si les données de timer sont présentes
+        // Marquer l'état initial comme reçu
+        initialStateReceived.value = true;
+        
+        // Mettre à jour l'état du tournoi avec les données complètes
         if (data) {
-          console.log('Timer data available:', {
-            current_level: data.current_level,
-            seconds_remaining: data.seconds_remaining,
-            level_duration: data.level_duration,
-            paused: data.paused
-          });
-
-          // Update tournament state
+          // Mettre à jour toutes les valeurs d'état importantes
           if (data.current_level !== undefined) {
-            // Démarrer au niveau 1 si le niveau reçu est 0
             currentLevel.value = data.current_level || 1;
-            console.log('Setting current level to:', currentLevel.value);
           }
-
-          // Si les données de timer ne sont pas fournies, les initialiser avec la durée par défaut du niveau actuel
-          if (data.seconds_remaining === undefined || data.level_duration === undefined) {
-            // Rechercher la structure de blindes correspondant au niveau
-            const level = blindsStructure.value.find(l => l.level === currentLevel.value);
-            
-            if (level) {
-              timeRemaining.value = level.duration * 60; // Convertir minutes en secondes
-              levelDuration.value = level.duration * 60;
-              console.log('Initializing timer with default level duration:', level.duration, 'minutes');
-            } else {
-              // Si aucune structure n'est trouvée, utiliser des valeurs par défaut
-              timeRemaining.value = 15 * 60; // 15 minutes par défaut
-              levelDuration.value = 15 * 60;
-              console.log('No level structure found, using default 15 minutes');
-            }
-          } else {
+          
+          if (data.blinds_structure) {
+            // Si le serveur envoie la structure complète, l'utiliser
+            blindsStructure.value = data.blinds_structure;
+          }
+          
+          // Mettre à jour le timer
+          if (data.seconds_remaining !== undefined) {
             timeRemaining.value = data.seconds_remaining;
-            levelDuration.value = data.level_duration;
-            console.log('Setting timer from server data:', timeRemaining.value, 'seconds');
+            levelDuration.value = data.level_duration || 0;
+          } else {
+            // Si pas de données timer, trouver la durée du niveau actuel
+            const level = blindsStructure.value.find(l => l.level === currentLevel.value);
+            if (level) {
+              timeRemaining.value = level.duration * 60;
+              levelDuration.value = level.duration * 60;
+            } else {
+              // Valeurs par défaut en dernier recours
+              timeRemaining.value = 20 * 60;
+              levelDuration.value = 20 * 60;
+              console.warn('Niveau actuel introuvable dans la structure, valeurs par défaut utilisées');
+            }
           }
-
-          lastUpdateTime.value = Date.now();
+          
+          // Mettre à jour l'état de pause
           isPaused.value = data.paused || false;
-
-          // Start timer if not paused
+          
+          // Mise à jour de l'heure de dernière mise à jour
+          lastUpdateTime.value = Date.now();
+          
+          // Mise à jour des tables
+          if (data.tables_state) {
+            // Mettre à jour l'état des tables
+            processTables(data.tables_state);
+          }
+          
+          // Démarrer le timer si nécessaire
           if (!isPaused.value) {
             startTimer();
-            console.log('Timer started');
-          } else {
-            console.log('Tournament is paused, timer not started');
           }
+          
+          console.log('État du tournoi initialisé avec succès');
+        }
+      })
+    );
+
+    // Réponse à une demande de synchronisation
+    removeListeners.push(
+      websocketService.on('sync_state', (data) => {
+        console.log('Sync state received:', data);
+        
+        // Réinitialiser le flag de demande
+        syncRequested.value = false;
+        
+        // Mettre à jour avec les données synchronisées
+        if (data) {
+          if (data.current_level !== undefined) {
+            currentLevel.value = data.current_level;
+          }
+          
+          if (data.seconds_remaining !== undefined) {
+            timeRemaining.value = data.seconds_remaining;
+          }
+          
+          if (data.level_duration !== undefined) {
+            levelDuration.value = data.level_duration;
+          }
+          
+          if (data.tables_state) {
+            processTables(data.tables_state);
+          }
+          
+          // Réinitialiser le timer
+          isPaused.value = data.paused || false;
+          lastUpdateTime.value = Date.now();
+          
+          if (!isPaused.value) {
+            stopTimer();
+            startTimer();
+          }
+          
+          showInfo('Synchronisation réussie');
         }
       })
     );
@@ -1354,75 +1413,112 @@ const setupWebSocket = async () => {
         console.log('Level changed event received:', data);
         
         if (data.level) {
+          // Mettre à jour le niveau actuel
           currentLevel.value = data.level;
           
-          // Si nous avons des données de timer du serveur, les utiliser
-          if (data.seconds_remaining !== undefined && data.level_duration !== undefined) {
+          // Mettre à jour complètement l'état du timer avec les données du serveur
+          if (data.seconds_remaining !== undefined) {
             timeRemaining.value = data.seconds_remaining;
-            levelDuration.value = data.level_duration;
-          } else {
-            // Sinon, obtenir la durée à partir de la structure des blindes
-            const level = blindsStructure.value.find(l => l.level === data.level);
-            if (level) {
-              timeRemaining.value = level.duration * 60;
-              levelDuration.value = level.duration * 60;
-            }
           }
           
+          if (data.level_duration !== undefined) {
+            levelDuration.value = data.level_duration;
+          }
+          
+          // Réinitialiser le timestamp de la dernière mise à jour
           lastUpdateTime.value = Date.now();
           
-          // Afficher une notification pour les utilisateurs non-admin
-          if (!isAdmin.value) {
-            const levelData = blindsStructure.value.find(l => l.level === data.level);
-            if (levelData) {
-              showInfo(`Niveau ${data.level} - Blindes: ${levelData.small_blind}/${levelData.big_blind}`);
-            } else {
-              showInfo(`Passage au niveau ${data.level}`);
-            }
+          // Notifier l'utilisateur du changement de niveau
+          const levelInfo = blindsStructure.value.find(l => l.level === data.level);
+          if (levelInfo) {
+            const message = `Niveau ${data.level} - Blindes: ${levelInfo.small_blind}/${levelInfo.big_blind}`;
+            showInfo(message);
+          } else {
+            showInfo(`Passage au niveau ${data.level}`);
           }
           
-          // Redémarrer le timer si non en pause
+          // Redémarrer le timer seulement si le tournoi n'est pas en pause
           if (!isPaused.value) {
-            stopTimer(); // Arrêter tout timer existant
-            startTimer();
+            stopTimer(); // Arrêter l'ancien timer
+            startTimer(); // Démarrer un nouveau timer
           }
         }
       })
-    )
+    );
 
     // Pause status changed
     removeListeners.push(
       websocketService.on('pause_status_changed', (data) => {
-        console.log('Pause status changed:', data)
+        console.log('Pause status changed:', data);
 
-        isPaused.value = data.paused || false
+        // Terminer l'état de demande en cours
+        pauseRequestInProgress.value = false;
+        
+        // Mettre à jour l'état de pause
+        isPaused.value = data.paused || false;
 
+        // Mettre à jour les données du timer si fournies
         if (data.seconds_remaining !== undefined) {
-          timeRemaining.value = data.seconds_remaining
-          lastUpdateTime.value = Date.now()
+          timeRemaining.value = data.seconds_remaining;
         }
+        
+        if (data.level_duration !== undefined) {
+          levelDuration.value = data.level_duration;
+        }
+        
+        lastUpdateTime.value = Date.now();
 
+        // Démarrer ou arrêter le timer en fonction de l'état de pause
         if (isPaused.value) {
-          stopTimer()
+          stopTimer();
+          showInfo("Tournoi en pause");
         } else {
-          startTimer()
+          startTimer();
+          showInfo("Tournoi repris");
         }
       })
-    )
+    );
 
     // Timer tick
     removeListeners.push(
       websocketService.on('timer_tick', (data) => {
-        // Only update if significant difference to avoid jitter
+        // Toujours adopter la valeur du serveur, quelle que soit la différence
         if (data.seconds_remaining !== undefined) {
-          const diff = Math.abs(timeRemaining.value - data.seconds_remaining)
-          if (diff > 2) {
-            timeRemaining.value = data.seconds_remaining
-            lastUpdateTime.value = Date.now()
+          timeRemaining.value = data.seconds_remaining;
+          lastUpdateTime.value = Date.now();
+        }
+        
+        if (data.total_seconds !== undefined) {
+          levelDuration.value = data.total_seconds;
+        }
+        
+        // Mise à jour du niveau si le serveur l'envoie
+        if (data.current_level !== undefined && data.current_level !== currentLevel.value) {
+          currentLevel.value = data.current_level;
+          
+          // Mettre à jour les informations de blindes
+          const levelData = blindsStructure.value.find(l => l.level === data.current_level);
+          if (levelData && !isAdmin.value) {
+            showInfo(`Niveau ${data.current_level} - Blindes: ${levelData.small_blind}/${levelData.big_blind}`);
+          }
+        }
+        
+        // Synchroniser l'état de pause
+        if (data.paused !== undefined) {
+          const oldPaused = isPaused.value;
+          isPaused.value = data.paused;
+          
+          // Si l'état de pause a changé, démarrer ou arrêter le timer
+          if (oldPaused !== isPaused.value) {
+            if (isPaused.value) {
+              stopTimer();
+            } else {
+              startTimer();
+            }
           }
         }
       })
-    )
+    );
 
     // Player eliminated
     removeListeners.push(
@@ -1449,11 +1545,34 @@ const setupWebSocket = async () => {
     )
 
     wsEventListeners.value = removeListeners
+    // Définir un timer de secours pour demander une synchronisation si aucun état initial n'est reçu
+    setTimeout(() => {
+        if (!initialStateReceived.value && wsConnected.value && !syncRequested.value) {
+          requestSync();
+        }
+      }, 5000);
+    } catch (error) {
+      console.error('WebSocket connection failed:', error);
+      wsConnected.value = false;
+      showError('Impossible de se connecter aux mises à jour en direct');
+    }
+  };
+
+// Fonction pour demander une synchronisation
+const requestSync = () => {
+  if (!wsConnected.value || syncRequested.value) return;
+  
+  try {
+    syncRequested.value = true;
+    websocketService.send({
+      type: 'request_sync'
+    });
+    console.log('Synchronisation demandée');
   } catch (error) {
-    console.error('WebSocket connection failed:', error)
-    wsConnected.value = false
+    console.error('Erreur lors de la demande de synchronisation:', error);
+    syncRequested.value = false;
   }
-}
+};
 
 const teardownWebSocket = () => {
   console.log('Cleaning up WebSocket connection')
@@ -1545,6 +1664,18 @@ onMounted(async () => {
       // Setup WebSocket for real-time updates
       await setupWebSocket()
 
+      // S'abonner aux changements d'état de connexion
+      connectionStatusListener.value = websocketService.onConnectionStatusChange((connected) => {
+        wsConnected.value = connected;
+        
+        // Notifier l'utilisateur des changements de connectivité
+        if (connected) {
+          showSuccess("Connexion WebSocket établie");
+        } else {
+          showWarning("Connexion WebSocket perdue. Tentative de reconnexion...");
+        }
+      });
+
       // Start timer if not paused
       if (!isPaused.value) {
         startTimer()
@@ -1566,6 +1697,11 @@ onUnmounted(() => {
   stopTimer()
   teardownWebSocket()
   stopClock()
+
+  // Désabonnement du listener d'état
+  if (connectionStatusListener.value) {
+    connectionStatusListener.value();
+  }
   console.log('Component unmounted, resources cleaned up')
 })
 

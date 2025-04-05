@@ -7,7 +7,7 @@ from ..schemas.schemas import (
     TournamentResponse, 
     RebuyRequest
 )
-from ..models.models import TournamentType, TournamentStatus
+from ..models.models import TournamentType, TournamentStatus, Tournament
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
@@ -31,6 +31,29 @@ from .websockets import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+# Fonction d'autorisation centralisée
+def check_tournament_admin(tournament_id: int, user_id: int, db: Session):
+    """
+    Vérifie que l'utilisateur est admin du tournoi et que le tournoi existe
+    Retourne le tournoi si OK, sinon lève une exception HTTPException
+    """
+    tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
+
+    if not tournament:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournoi non trouvé"
+        )
+
+    if tournament.admin_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous n'êtes pas l'administrateur de ce tournoi"
+        )
+
+    return tournament
 
 @router.post("/", response_model=TournamentResponse)
 async def create_tournament(
@@ -158,12 +181,14 @@ async def pause_tournament(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Met en pause le tournoi"""
-    tournament = tournament_crud.get_tournament(db, tournament_id)
-    if not tournament or tournament.admin_id != current_user.id:
+    """Met en pause le tournoi """
+    tournament = check_tournament_admin(tournament_id, current_user.id, db)
+
+    # Vérification de l'état du tournoi
+    if tournament.status != TournamentStatus.IN_PROGRESS:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permissions insuffisantes"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le tournoi n'est pas en cours"
         )
 
     # Si déjà en pause, ne rien faire
@@ -182,15 +207,23 @@ async def pause_tournament(
     # Marquer comme en pause
     tournament.paused_at = datetime.utcnow()
     db.commit()
+    db.refresh(tournament)
 
-    # Notifier de la pause
+    # Notifier de la pause avec les données à jour
     background_tasks.add_task(
         notify_pause_status,
         tournament_id,
-        True
+        True,
+        tournament.seconds_remaining,
+        tournament.level_duration
     )
 
-    return {"status": "success", "message": "Tournoi en pause"}
+    return {
+        "status": "success",
+        "message": "Tournoi en pause",
+        "seconds_remaining": tournament.seconds_remaining,
+        "level_duration": tournament.level_duration
+    }
 
 
 @router.post("/{tournament_id}/resume")
@@ -200,12 +233,26 @@ async def resume_tournament(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Reprend le tournoi après une pause"""
-    tournament = tournament_crud.get_tournament(db, tournament_id)
-    if not tournament or tournament.admin_id != current_user.id:
+    """Reprend le tournoi après une pause avec validation et notification améliorées"""
+    tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
+    if not tournament:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournoi non trouvé"
+        )
+
+    # Vérification stricte des autorisations
+    if tournament.admin_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permissions insuffisantes"
+            detail="Vous n'êtes pas l'administrateur de ce tournoi"
+        )
+
+    # Vérification de l'état du tournoi
+    if tournament.status != TournamentStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le tournoi n'est pas en cours"
         )
 
     # Si déjà en marche, ne rien faire
@@ -216,15 +263,23 @@ async def resume_tournament(
     tournament.last_timer_update = datetime.utcnow()
     tournament.paused_at = None
     db.commit()
+    db.refresh(tournament)
 
-    # Notifier de la reprise
+    # Notifier de la reprise avec les données à jour
     background_tasks.add_task(
         notify_pause_status,
         tournament_id,
-        False
+        False,
+        tournament.seconds_remaining,
+        tournament.level_duration
     )
 
-    return {"status": "success", "message": "Tournoi repris"}
+    return {
+        "status": "success",
+        "message": "Tournoi repris",
+        "seconds_remaining": tournament.seconds_remaining,
+        "level_duration": tournament.level_duration
+    }
 
 
 @router.post("/{tournament_id}/levels/{level_number}")
@@ -235,24 +290,55 @@ async def update_tournament_level(
         db: Session = Depends(get_db),
         current_user: User = Depends(get_current_user)
 ):
-    """Met à jour le niveau actuel du tournoi"""
-    tournament = tournament_crud.get_tournament(db, tournament_id)
-    if not tournament or tournament.admin_id != current_user.id:
+    """Met à jour le niveau actuel du tournoi avec validation améliorée"""
+    tournament = db.query(Tournament).filter(Tournament.id == tournament_id).first()
+    if not tournament:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Permissions insuffisantes"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Tournoi non trouvé"
         )
 
-    # Récupérer les données du niveau
-    level_data = None
-    if tournament.configuration and tournament.configuration.blinds_structure:
-        level_data = next((level for level in tournament.configuration.blinds_structure
-                           if level.get("level") == level_number), None)
+    # Vérification stricte des autorisations
+    if tournament.admin_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Vous n'êtes pas l'administrateur de ce tournoi"
+        )
 
+    # Vérification de l'état du tournoi
+    if tournament.status != TournamentStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le tournoi n'est pas en cours"
+        )
+
+    # Récupérer la configuration et la structure de blindes
+    if not tournament.configuration or not tournament.configuration.blinds_structure:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Configuration ou structure de blindes manquante"
+        )
+
+    blinds_structure = tournament.configuration.blinds_structure.structure
+    if not blinds_structure:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Structure de blindes invalide"
+        )
+
+    # Vérifier que le niveau demandé existe
+    level_data = next((level for level in blinds_structure if level.get("level") == level_number), None)
     if not level_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Niveau invalide"
+            detail=f"Niveau {level_number} non trouvé dans la structure de blindes"
+        )
+
+    # Vérifier que le niveau demandé est le suivant
+    if level_number != tournament.current_level + 1 and level_number != tournament.current_level:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Impossible de sauter directement au niveau {level_number}. Niveau actuel: {tournament.current_level}"
         )
 
     # Mettre à jour le niveau et le timer
@@ -267,8 +353,8 @@ async def update_tournament_level(
         notify_level_change,
         tournament_id,
         level_number,
-        tournament.seconds_remaining,
-        tournament.level_duration
+        level_data,
+        tournament.last_timer_update.isoformat()
     )
 
     return {"status": "success", "message": f"Niveau mis à jour: {level_number}"}
